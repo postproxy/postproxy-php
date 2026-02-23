@@ -1,0 +1,32 @@
+{
+    "name": "postproxy/postproxy-php",
+    "description": "PHP client for the PostProxy API — manage social media posts, profiles, and profile groups.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "PostProxy",
+            "email": "support@postproxy.dev"
+        }
+    ],
+    "homepage": "https://postproxy.dev",
+    "require": {
+        "php": ">=8.1",
+        "guzzlehttp/guzzle": "^7.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.0|^11.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "PostProxy\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PostProxy\\Tests\\": "tests/"
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
