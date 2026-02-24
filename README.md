@@ -75,6 +75,25 @@ $post = $client->posts()->publishDraft('post-id');
 
 // Delete a post
 $result = $client->posts()->delete('post-id');
+
+// Get stats for posts
+$stats = $client->posts()->stats(['post-1', 'post-2']);
+foreach ($stats->data as $postId => $postStats) {
+    foreach ($postStats->platforms as $platform) {
+        echo "{$platform->platform}: " . count($platform->records) . " snapshots\n";
+        foreach ($platform->records as $record) {
+            echo "  {$record->recordedAt->format('Y-m-d')}: " . json_encode($record->stats) . "\n";
+        }
+    }
+}
+
+// Filter stats by profiles/networks and time range
+$stats = $client->posts()->stats(
+    ['post-1'],
+    profiles: ['instagram', 'twitter'],
+    from: '2026-02-01T00:00:00Z',
+    to: '2026-02-24T00:00:00Z',
+);
 ```
 
 ### Profiles
