@@ -7,6 +7,8 @@ use PostProxy\Types\DeleteResponse;
 use PostProxy\Types\PaginatedResponse;
 use PostProxy\Types\PlatformParams\PlatformParams;
 use PostProxy\Types\Post;
+use PostProxy\Types\PostStats;
+use PostProxy\Types\StatsResponse;
 
 class Posts
 {
@@ -124,6 +126,33 @@ class Posts
     {
         $result = $this->client->request('POST', "/posts/{$id}/publish", profileGroupId: $profileGroupId);
         return new Post($result);
+    }
+
+    public function stats(
+        array $postIds,
+        ?array $profiles = null,
+        string|\DateTimeInterface|null $from = null,
+        string|\DateTimeInterface|null $to = null,
+    ): StatsResponse {
+        $params = ['post_ids' => implode(',', $postIds)];
+        if ($profiles !== null) {
+            $params['profiles'] = implode(',', $profiles);
+        }
+        if ($from !== null) {
+            $params['from'] = $this->formatTime($from);
+        }
+        if ($to !== null) {
+            $params['to'] = $this->formatTime($to);
+        }
+
+        $result = $this->client->request('GET', '/posts/stats', params: $params);
+
+        $data = [];
+        foreach ($result['data'] ?? [] as $postId => $postData) {
+            $data[$postId] = new PostStats($postData);
+        }
+
+        return new StatsResponse($data);
     }
 
     public function delete(string $id, ?string $profileGroupId = null): DeleteResponse
