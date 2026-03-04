@@ -70,6 +70,19 @@ $post = $client->posts()->create(
     mediaFiles: ['/path/to/image.jpg'],
 );
 
+// Create a thread post
+$post = $client->posts()->create(
+    'Thread starts here',
+    profiles: ['prof-1'],
+    thread: [
+        ['body' => 'Second post in the thread'],
+        ['body' => 'Third with media', 'media' => ['https://example.com/img.jpg']],
+    ],
+);
+foreach ($post->thread as $child) {
+    echo "{$child->id}: {$child->body}\n";
+}
+
 // Publish a draft
 $post = $client->posts()->publishDraft('post-id');
 
@@ -93,6 +106,50 @@ $stats = $client->posts()->stats(
     profiles: ['instagram', 'twitter'],
     from: '2026-02-01T00:00:00Z',
     to: '2026-02-24T00:00:00Z',
+);
+```
+
+### Webhooks
+
+```php
+// List webhooks
+$webhooks = $client->webhooks()->list();
+
+// Get a webhook
+$webhook = $client->webhooks()->get('wh-id');
+
+// Create a webhook
+$webhook = $client->webhooks()->create(
+    'https://example.com/webhook',
+    events: ['post.published', 'post.failed'],
+    description: 'My webhook',
+);
+echo $webhook->secret;
+
+// Update a webhook
+$webhook = $client->webhooks()->update('wh-id', events: ['post.published'], enabled: false);
+
+// Delete a webhook
+$client->webhooks()->delete('wh-id');
+
+// List deliveries
+$deliveries = $client->webhooks()->deliveries('wh-id', page: 1, perPage: 10);
+foreach ($deliveries->data as $d) {
+    echo "{$d->eventType}: {$d->success}\n";
+}
+```
+
+#### Signature verification
+
+Verify incoming webhook signatures using HMAC-SHA256:
+
+```php
+use PostProxy\WebhookSignature;
+
+$isValid = WebhookSignature::verify(
+    payload: $request->getContent(),
+    signatureHeader: $request->headers->get('X-PostProxy-Signature'),
+    secret: 'whsec_...',
 );
 ```
 

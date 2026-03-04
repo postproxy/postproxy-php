@@ -133,6 +133,134 @@ class PostsTest extends TestCase
         $this->assertEquals('Hi!', $body['platforms']['facebook']['first_comment']);
     }
 
+    public function testCreateWithThread(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'id' => 'post-thread',
+            'body' => 'Main post',
+            'status' => 'pending',
+            'created_at' => '2025-01-01T00:00:00Z',
+            'platforms' => [],
+            'thread' => [
+                ['id' => 't-1', 'body' => 'Reply 1', 'media' => []],
+                ['id' => 't-2', 'body' => 'Reply 2', 'media' => []],
+            ],
+        ]);
+
+        $post = $client->posts()->create('Main post', profiles: ['prof-1'], thread: [
+            ['body' => 'Reply 1'],
+            ['body' => 'Reply 2', 'media' => ['https://example.com/img.jpg']],
+        ]);
+
+        $this->assertEquals('post-thread', $post->id);
+        $this->assertCount(2, $post->thread);
+        $this->assertEquals('Reply 1', $post->thread[0]->body);
+
+        $body = $this->lastRequestBody();
+        $this->assertCount(2, $body['thread']);
+        $this->assertEquals('Reply 1', $body['thread'][0]['body']);
+        $this->assertEquals(['https://example.com/img.jpg'], $body['thread'][1]['media']);
+    }
+
+    public function testGetWithMediaAndThread(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'id' => 'post-1',
+            'body' => 'Hello',
+            'status' => 'media_processing_failed',
+            'created_at' => '2025-01-01T00:00:00Z',
+            'platforms' => [],
+            'media' => [
+                ['id' => 'm-1', 'status' => 'processed', 'content_type' => 'image/jpeg', 'url' => 'https://cdn.example.com/img.jpg'],
+            ],
+            'thread' => [
+                ['id' => 't-1', 'body' => 'Reply', 'media' => []],
+            ],
+        ]);
+
+        $post = $client->posts()->get('post-1');
+
+        $this->assertEquals('media_processing_failed', $post->status);
+        $this->assertCount(1, $post->media);
+        $this->assertEquals('processed', $post->media[0]->status);
+        $this->assertCount(1, $post->thread);
+        $this->assertEquals('Reply', $post->thread[0]->body);
+    }
+
+    public function testCreateThreadWithMediaFiles(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'id' => 'post-thread-files',
+            'body' => 'Main post',
+            'status' => 'pending',
+            'created_at' => '2025-01-01T00:00:00Z',
+            'platforms' => [],
+            'thread' => [
+                ['id' => 't-1', 'body' => 'Reply 1', 'media' => []],
+            ],
+        ]);
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_') . '.jpg';
+        file_put_contents($tmpFile, 'fake-image-data');
+
+        try {
+            $post = $client->posts()->create('Main post', profiles: ['prof-1'], thread: [
+                ['body' => 'Reply 1', 'media_files' => [$tmpFile]],
+            ]);
+
+            $this->assertEquals('post-thread-files', $post->id);
+
+            $request = $this->lastRequest();
+            $contentType = $request->getHeaderLine('Content-Type');
+            $this->assertStringContainsString('multipart/form-data', $contentType);
+
+            $body = (string) $request->getBody();
+            $this->assertStringContainsString('thread[0][body]', $body);
+            $this->assertStringContainsString('thread[0][media][]', $body);
+            $this->assertStringContainsString('fake-image-data', $body);
+        } finally {
+            @unlink($tmpFile);
+        }
+    }
+
+    public function testCreateThreadWithMediaUrlsAndFilesUsesMultipart(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'id' => 'post-mixed',
+            'body' => 'Main',
+            'status' => 'pending',
+            'created_at' => '2025-01-01T00:00:00Z',
+            'platforms' => [],
+        ]);
+
+        $tmpFile = tempnam(sys_get_temp_dir(), 'test_') . '.png';
+        file_put_contents($tmpFile, 'fake-png');
+
+        try {
+            $client->posts()->create('Main', profiles: ['prof-1'], thread: [
+                ['body' => 'URL child', 'media' => ['https://example.com/img.jpg']],
+                ['body' => 'File child', 'media_files' => [$tmpFile]],
+            ]);
+
+            $request = $this->lastRequest();
+            $contentType = $request->getHeaderLine('Content-Type');
+            $this->assertStringContainsString('multipart/form-data', $contentType);
+
+            $body = (string) $request->getBody();
+            $this->assertStringContainsString('thread[0][body]', $body);
+            $this->assertStringContainsString('thread[0][media][]', $body);
+            $this->assertStringContainsString('thread[1][body]', $body);
+            $this->assertStringContainsString('thread[1][media][]', $body);
+            $this->assertStringContainsString('fake-png', $body);
+        } finally {
+            @unlink($tmpFile);
+        }
+    }
+
     public function testPublishDraft(): void
     {
         $client = $this->mockClient();

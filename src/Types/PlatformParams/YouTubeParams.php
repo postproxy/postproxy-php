@@ -10,4 +10,5 @@ class YouTubeParams extends Model
     public ?string $title = null;
     public ?string $privacyStatus = null;
     public ?string $coverUrl = null;
+    public ?bool $madeForKids = null;
 }
