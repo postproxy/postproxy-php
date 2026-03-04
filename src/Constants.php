@@ -13,7 +13,9 @@ class Constants
 
     public const PROFILE_STATUSES = ['active', 'expired', 'inactive'];
 
-    public const POST_STATUSES = ['pending', 'draft', 'processing', 'processed', 'scheduled'];
+    public const POST_STATUSES = ['pending', 'draft', 'processing', 'processed', 'scheduled', 'media_processing_failed'];
+
+    public const MEDIA_STATUSES = ['pending', 'processed', 'failed'];
 
     public const PLATFORM_POST_STATUSES = ['pending', 'processing', 'published', 'failed', 'deleted'];
 

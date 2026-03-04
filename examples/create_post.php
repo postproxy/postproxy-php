@@ -37,3 +37,15 @@ echo "Total posts: {$result->total}\n";
 foreach ($result->data as $p) {
     echo "  {$p->id}: {$p->body}\n";
 }
+
+// Create a thread post
+$threadPost = $client->posts()->create(
+    "Here's a thread about PostProxy 🧵",
+    profiles: ['twitter-profile-id'],
+    thread: [
+        ['body' => 'First, connect your social accounts.'],
+        ['body' => 'Then, create posts with media!', 'media' => ['https://example.com/demo.jpg']],
+        ['body' => 'Finally, schedule or publish instantly.'],
+    ],
+);
+echo "Thread post: {$threadPost->id} (" . count($threadPost->thread) . " children)\n";

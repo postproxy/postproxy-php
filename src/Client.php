@@ -14,6 +14,7 @@ use PostProxy\Exceptions\ValidationException;
 use PostProxy\Resources\Posts;
 use PostProxy\Resources\Profiles;
 use PostProxy\Resources\ProfileGroups;
+use PostProxy\Resources\Webhooks;
 
 class Client
 {
@@ -21,6 +22,7 @@ class Client
     private ?Posts $posts = null;
     private ?Profiles $profiles = null;
     private ?ProfileGroups $profileGroups = null;
+    private ?Webhooks $webhooks = null;
 
     public function __construct(
         public readonly string $apiKey,
@@ -46,6 +48,11 @@ class Client
     public function profileGroups(): ProfileGroups
     {
         return $this->profileGroups ??= new ProfileGroups($this);
+    }
+
+    public function webhooks(): Webhooks
+    {
+        return $this->webhooks ??= new Webhooks($this);
     }
 
     /**

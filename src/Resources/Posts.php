@@ -52,11 +52,17 @@ class Posts
         ?array $media = null,
         ?array $mediaFiles = null,
         PlatformParams|array|null $platforms = null,
+        ?array $thread = null,
         string|\DateTimeInterface|null $scheduledAt = null,
         ?bool $draft = null,
         ?string $profileGroupId = null,
     ): Post {
-        if ($mediaFiles !== null && count($mediaFiles) > 0) {
+        $hasFiles = $mediaFiles !== null && count($mediaFiles) > 0;
+        $hasThreadFiles = $thread !== null && array_reduce($thread, function ($carry, $t) {
+            return $carry || !empty($t['media_files']);
+        }, false);
+
+        if ($hasFiles || $hasThreadFiles) {
             $formData = ['post[body]' => $body];
             if ($scheduledAt !== null) {
                 $formData['post[scheduled_at]'] = $this->formatTime($scheduledAt);
@@ -86,12 +92,38 @@ class Posts
                 }
             }
 
-            foreach ($mediaFiles as $path) {
-                $path = (string) $path;
-                $filename = basename($path);
-                $contentType = $this->mimeTypeFor($filename);
-                $io = fopen($path, 'rb');
-                $files[] = ['media[]', $filename, $io, $contentType];
+            if ($mediaFiles !== null) {
+                foreach ($mediaFiles as $path) {
+                    $path = (string) $path;
+                    $filename = basename($path);
+                    $contentType = $this->mimeTypeFor($filename);
+                    $io = fopen($path, 'rb');
+                    $files[] = ['media[]', $filename, $io, $contentType];
+                }
+            }
+
+            if ($thread !== null) {
+                foreach ($thread as $i => $t) {
+                    if (isset($t['body'])) {
+                        $formData["thread[{$i}][body]"] = $t['body'];
+                    }
+
+                    if (!empty($t['media'])) {
+                        foreach ($t['media'] as $m) {
+                            $files[] = ["thread[{$i}][media][]", null, $m, 'text/plain'];
+                        }
+                    }
+
+                    if (!empty($t['media_files'])) {
+                        foreach ($t['media_files'] as $path) {
+                            $path = (string) $path;
+                            $filename = basename($path);
+                            $contentType = $this->mimeTypeFor($filename);
+                            $io = fopen($path, 'rb');
+                            $files[] = ["thread[{$i}][media][]", $filename, $io, $contentType];
+                        }
+                    }
+                }
             }
 
             $result = $this->client->request('POST', '/posts',
@@ -114,6 +146,9 @@ class Posts
             }
             if ($media !== null) {
                 $jsonBody['media'] = $media;
+            }
+            if ($thread !== null) {
+                $jsonBody['thread'] = $thread;
             }
 
             $result = $this->client->request('POST', '/posts', json: $jsonBody, profileGroupId: $profileGroupId);
