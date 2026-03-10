@@ -109,6 +109,57 @@ $stats = $client->posts()->stats(
 );
 ```
 
+### Queues
+
+```php
+// List all queues
+$queues = $client->queues()->list();
+
+// Get a queue
+$queue = $client->queues()->get('queue-id');
+
+// Get next available slot
+$nextSlot = $client->queues()->nextSlot('queue-id');
+echo $nextSlot->nextSlot;
+
+// Create a queue with timeslots
+$queue = $client->queues()->create(
+    'Morning Posts',
+    'profile-group-id',
+    description: 'Weekday morning content',
+    timezone: 'America/New_York',
+    jitter: 10,
+    timeslots: [
+        ['day' => 1, 'time' => '09:00'],
+        ['day' => 2, 'time' => '09:00'],
+        ['day' => 3, 'time' => '09:00'],
+    ],
+);
+
+// Update a queue
+$queue = $client->queues()->update('queue-id',
+    jitter: 15,
+    timeslots: [
+        ['day' => 6, 'time' => '10:00'],        // add new timeslot
+        ['id' => 1, '_destroy' => true],          // remove existing timeslot
+    ],
+);
+
+// Pause/unpause a queue
+$client->queues()->update('queue-id', enabled: false);
+
+// Delete a queue
+$client->queues()->delete('queue-id');
+
+// Add a post to a queue
+$post = $client->posts()->create(
+    'This post will be scheduled by the queue',
+    profiles: ['prof-1'],
+    queueId: 'queue-id',
+    queuePriority: 'high',
+);
+```
+
 ### Webhooks
 
 ```php

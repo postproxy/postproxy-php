@@ -12,6 +12,8 @@ class Post extends Model
     public array $media = [];
     public array $platforms = [];
     public array $thread = [];
+    public ?string $queueId = null;
+    public ?string $queuePriority = null;
 
     public function __construct(array $attrs = [])
     {

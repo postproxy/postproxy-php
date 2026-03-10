@@ -15,6 +15,7 @@ use PostProxy\Resources\Posts;
 use PostProxy\Resources\Profiles;
 use PostProxy\Resources\ProfileGroups;
 use PostProxy\Resources\Webhooks;
+use PostProxy\Resources\Queues;
 
 class Client
 {
@@ -23,6 +24,7 @@ class Client
     private ?Profiles $profiles = null;
     private ?ProfileGroups $profileGroups = null;
     private ?Webhooks $webhooks = null;
+    private ?Queues $queues = null;
 
     public function __construct(
         public readonly string $apiKey,
@@ -53,6 +55,11 @@ class Client
     public function webhooks(): Webhooks
     {
         return $this->webhooks ??= new Webhooks($this);
+    }
+
+    public function queues(): Queues
+    {
+        return $this->queues ??= new Queues($this);
     }
 
     /**

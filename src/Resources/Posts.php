@@ -55,6 +55,8 @@ class Posts
         ?array $thread = null,
         string|\DateTimeInterface|null $scheduledAt = null,
         ?bool $draft = null,
+        ?string $queueId = null,
+        ?string $queuePriority = null,
         ?string $profileGroupId = null,
     ): Post {
         $hasFiles = $mediaFiles !== null && count($mediaFiles) > 0;
@@ -149,6 +151,12 @@ class Posts
             }
             if ($thread !== null) {
                 $jsonBody['thread'] = $thread;
+            }
+            if ($queueId !== null) {
+                $jsonBody['queue_id'] = $queueId;
+            }
+            if ($queuePriority !== null) {
+                $jsonBody['queue_priority'] = $queuePriority;
             }
 
             $result = $this->client->request('POST', '/posts', json: $jsonBody, profileGroupId: $profileGroupId);
