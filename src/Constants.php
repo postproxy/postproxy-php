@@ -20,7 +20,7 @@ class Constants
     public const PLATFORM_POST_STATUSES = ['pending', 'processing', 'published', 'failed', 'deleted'];
 
     public const INSTAGRAM_FORMATS = ['post', 'reel', 'story'];
-    public const FACEBOOK_FORMATS = ['post', 'story'];
+    public const FACEBOOK_FORMATS = ['post', 'story', 'reel'];
     public const TIKTOK_FORMATS = ['video', 'image'];
     public const LINKEDIN_FORMATS = ['post'];
     public const YOUTUBE_FORMATS = ['post'];
