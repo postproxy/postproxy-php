@@ -165,6 +165,141 @@ class Posts
         return new Post($result);
     }
 
+    public function update(
+        string $id,
+        ?string $body = null,
+        ?array $profiles = null,
+        ?array $media = null,
+        ?array $mediaFiles = null,
+        PlatformParams|array|null $platforms = null,
+        ?array $thread = null,
+        string|\DateTimeInterface|null $scheduledAt = null,
+        ?bool $draft = null,
+        ?string $queueId = null,
+        ?string $queuePriority = null,
+        ?string $profileGroupId = null,
+    ): Post {
+        $hasFiles = $mediaFiles !== null && count($mediaFiles) > 0;
+        $hasThreadFiles = $thread !== null && array_reduce($thread, function ($carry, $t) {
+            return $carry || !empty($t['media_files']);
+        }, false);
+
+        if ($hasFiles || $hasThreadFiles) {
+            $formData = [];
+            if ($body !== null) {
+                $formData['post[body]'] = $body;
+            }
+            if ($scheduledAt !== null) {
+                $formData['post[scheduled_at]'] = $this->formatTime($scheduledAt);
+            }
+            if ($draft !== null) {
+                $formData['post[draft]'] = $draft ? 'true' : 'false';
+            }
+
+            $files = [];
+
+            if ($profiles !== null) {
+                foreach ($profiles as $p) {
+                    $files[] = ['profiles[]', null, $p, 'text/plain'];
+                }
+            }
+
+            if ($media !== null) {
+                foreach ($media as $m) {
+                    $files[] = ['media[]', null, $m, 'text/plain'];
+                }
+            }
+
+            if ($platforms !== null) {
+                $paramsHash = $platforms instanceof PlatformParams ? $platforms->toArray() : $platforms;
+                foreach ($paramsHash as $platform => $platformParams) {
+                    foreach ($platformParams as $key => $value) {
+                        $files[] = ["platforms[{$platform}][{$key}]", null, (string) $value, 'text/plain'];
+                    }
+                }
+            }
+
+            if ($mediaFiles !== null) {
+                foreach ($mediaFiles as $path) {
+                    $path = (string) $path;
+                    $filename = basename($path);
+                    $contentType = $this->mimeTypeFor($filename);
+                    $io = fopen($path, 'rb');
+                    $files[] = ['media[]', $filename, $io, $contentType];
+                }
+            }
+
+            if ($thread !== null) {
+                foreach ($thread as $i => $t) {
+                    if (isset($t['body'])) {
+                        $formData["thread[{$i}][body]"] = $t['body'];
+                    }
+
+                    if (!empty($t['media'])) {
+                        foreach ($t['media'] as $m) {
+                            $files[] = ["thread[{$i}][media][]", null, $m, 'text/plain'];
+                        }
+                    }
+
+                    if (!empty($t['media_files'])) {
+                        foreach ($t['media_files'] as $path) {
+                            $path = (string) $path;
+                            $filename = basename($path);
+                            $contentType = $this->mimeTypeFor($filename);
+                            $io = fopen($path, 'rb');
+                            $files[] = ["thread[{$i}][media][]", $filename, $io, $contentType];
+                        }
+                    }
+                }
+            }
+
+            $result = $this->client->request('PATCH', "/posts/{$id}",
+                data: $formData,
+                files: $files,
+                profileGroupId: $profileGroupId,
+            );
+        } else {
+            $jsonBody = [];
+
+            $postPayload = [];
+            if ($body !== null) {
+                $postPayload['body'] = $body;
+            }
+            if ($scheduledAt !== null) {
+                $postPayload['scheduled_at'] = $this->formatTime($scheduledAt);
+            }
+            if ($draft !== null) {
+                $postPayload['draft'] = $draft;
+            }
+            if (!empty($postPayload)) {
+                $jsonBody['post'] = $postPayload;
+            }
+
+            if ($profiles !== null) {
+                $jsonBody['profiles'] = $profiles;
+            }
+            if ($platforms !== null) {
+                $jsonBody['platforms'] = $platforms instanceof PlatformParams ? $platforms->toArray() : $platforms;
+            }
+            if ($media !== null) {
+                $jsonBody['media'] = $media;
+            }
+            if ($thread !== null) {
+                $jsonBody['thread'] = $thread;
+            }
+            if ($queueId !== null) {
+                $jsonBody['queue_id'] = $queueId;
+            }
+            if ($queuePriority !== null) {
+                $jsonBody['queue_priority'] = $queuePriority;
+            }
+
+            $result = $this->client->request('PATCH', "/posts/{$id}", json: $jsonBody, profileGroupId: $profileGroupId);
+        }
+
+        return new Post($result);
+    }
+
     public function publishDraft(string $id, ?string $profileGroupId = null): Post
     {
         $result = $this->client->request('POST', "/posts/{$id}/publish", profileGroupId: $profileGroupId);
