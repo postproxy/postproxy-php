@@ -204,6 +204,43 @@ $isValid = WebhookSignature::verify(
 );
 ```
 
+### Comments
+
+```php
+// List comments on a post (paginated)
+$comments = $client->comments()->list('post-id', profileId: 'profile-id');
+foreach ($comments->data as $comment) {
+    echo "{$comment->authorUsername}: {$comment->body}\n";
+    foreach ($comment->replies as $reply) {
+        echo "  {$reply->authorUsername}: {$reply->body}\n";
+    }
+}
+
+// List with pagination
+$comments = $client->comments()->list('post-id', profileId: 'profile-id', page: 2, perPage: 10);
+
+// Get a single comment
+$comment = $client->comments()->get('post-id', 'comment-id', profileId: 'profile-id');
+
+// Create a comment
+$comment = $client->comments()->create('post-id', profileId: 'profile-id', text: 'Great post!');
+
+// Reply to a comment
+$reply = $client->comments()->create('post-id', profileId: 'profile-id', text: 'Thanks!', parentId: 'comment-id');
+
+// Delete a comment
+$result = $client->comments()->delete('post-id', 'comment-id', profileId: 'profile-id');
+echo $result->accepted; // true
+
+// Hide / unhide a comment
+$client->comments()->hide('post-id', 'comment-id', profileId: 'profile-id');
+$client->comments()->unhide('post-id', 'comment-id', profileId: 'profile-id');
+
+// Like / unlike a comment
+$client->comments()->like('post-id', 'comment-id', profileId: 'profile-id');
+$client->comments()->unlike('post-id', 'comment-id', profileId: 'profile-id');
+```
+
 ### Profiles
 
 ```php
