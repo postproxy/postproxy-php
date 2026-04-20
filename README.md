@@ -89,6 +89,18 @@ $post = $client->posts()->publishDraft('post-id');
 // Delete a post
 $result = $client->posts()->delete('post-id');
 
+// Delete a post and also remove it from social platforms
+$result = $client->posts()->delete('post-id', deleteOnPlatform: true);
+
+// Delete from platforms only (keeps DB record). Defaults to all platforms.
+$r1 = $client->posts()->deleteOnPlatform('post-id');
+// Target a single network
+$r2 = $client->posts()->deleteOnPlatform('post-id', network: 'twitter');
+// Target a specific profile
+$r3 = $client->posts()->deleteOnPlatform('post-id', profileId: 'prof-abc');
+// Target a specific post profile (covers entire thread for that profile)
+$r4 = $client->posts()->deleteOnPlatform('post-id', postProfileId: 'pp-abc');
+
 // Get stats for posts
 $stats = $client->posts()->stats(['post-1', 'post-2']);
 foreach ($stats->data as $postId => $postStats) {

@@ -3,6 +3,7 @@
 namespace PostProxy\Resources;
 
 use PostProxy\Client;
+use PostProxy\Types\DeleteOnPlatformResponse;
 use PostProxy\Types\DeleteResponse;
 use PostProxy\Types\PaginatedResponse;
 use PostProxy\Types\PlatformParams\PlatformParams;
@@ -345,10 +346,48 @@ class Posts
         return new StatsResponse($data);
     }
 
-    public function delete(string $id, ?string $profileGroupId = null): DeleteResponse
-    {
-        $result = $this->client->request('DELETE', "/posts/{$id}", profileGroupId: $profileGroupId);
+    public function delete(
+        string $id,
+        ?bool $deleteOnPlatform = null,
+        ?string $profileGroupId = null,
+    ): DeleteResponse {
+        $params = [];
+        if ($deleteOnPlatform !== null) {
+            $params['delete_on_platform'] = $deleteOnPlatform ? 'true' : 'false';
+        }
+        $result = $this->client->request(
+            'DELETE',
+            "/posts/{$id}",
+            params: $params ?: null,
+            profileGroupId: $profileGroupId,
+        );
         return new DeleteResponse($result);
+    }
+
+    public function deleteOnPlatform(
+        string $id,
+        ?string $postProfileId = null,
+        ?string $profileId = null,
+        ?string $network = null,
+        ?string $profileGroupId = null,
+    ): DeleteOnPlatformResponse {
+        $jsonBody = [];
+        if ($postProfileId !== null) {
+            $jsonBody['post_profile_id'] = $postProfileId;
+        }
+        if ($profileId !== null) {
+            $jsonBody['profile_id'] = $profileId;
+        }
+        if ($network !== null) {
+            $jsonBody['network'] = $network;
+        }
+        $result = $this->client->request(
+            'POST',
+            "/posts/{$id}/delete_on_platform",
+            json: $jsonBody ?: null,
+            profileGroupId: $profileGroupId,
+        );
+        return new DeleteOnPlatformResponse($result);
     }
 
     private function formatTime(string|\DateTimeInterface $value): string
