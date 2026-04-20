@@ -2,7 +2,9 @@
 
 namespace PostProxy\Tests;
 
+use PostProxy\Types\DeleteOnPlatformResponse;
 use PostProxy\Types\DeleteResponse;
+use PostProxy\Types\DeletingPlatform;
 use PostProxy\Types\PaginatedResponse;
 use PostProxy\Types\PlatformParams\FacebookParams;
 use PostProxy\Types\PlatformParams\PlatformParams;
@@ -286,5 +288,66 @@ class PostsTest extends TestCase
 
         $this->assertInstanceOf(DeleteResponse::class, $result);
         $this->assertTrue($result->deleted);
+    }
+
+    public function testDeleteWithDeleteOnPlatform(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['deleted' => true]);
+
+        $result = $client->posts()->delete('post-1', deleteOnPlatform: true);
+
+        $this->assertTrue($result->deleted);
+        $this->assertStringContainsString('delete_on_platform=true', $this->lastRequestUri());
+    }
+
+    public function testDeleteOnPlatformAllPlatforms(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'success' => true,
+            'deleting' => [
+                ['post_profile_id' => 'pp-1', 'platform' => 'twitter'],
+            ],
+        ]);
+
+        $result = $client->posts()->deleteOnPlatform('post-1');
+
+        $this->assertInstanceOf(DeleteOnPlatformResponse::class, $result);
+        $this->assertTrue($result->success);
+        $this->assertCount(1, $result->deleting);
+        $this->assertInstanceOf(DeletingPlatform::class, $result->deleting[0]);
+        $this->assertEquals('twitter', $result->deleting[0]->platform);
+        $this->assertEquals('pp-1', $result->deleting[0]->postProfileId);
+    }
+
+    public function testDeleteOnPlatformByNetwork(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['success' => true, 'deleting' => []]);
+
+        $client->posts()->deleteOnPlatform('post-1', network: 'twitter');
+
+        $this->assertEquals(['network' => 'twitter'], $this->lastRequestBody());
+    }
+
+    public function testDeleteOnPlatformByProfileId(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['success' => true, 'deleting' => []]);
+
+        $client->posts()->deleteOnPlatform('post-1', profileId: 'prof-1');
+
+        $this->assertEquals(['profile_id' => 'prof-1'], $this->lastRequestBody());
+    }
+
+    public function testDeleteOnPlatformByPostProfileId(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['success' => true, 'deleting' => []]);
+
+        $client->posts()->deleteOnPlatform('post-1', postProfileId: 'pp-1');
+
+        $this->assertEquals(['post_profile_id' => 'pp-1'], $this->lastRequestBody());
     }
 }

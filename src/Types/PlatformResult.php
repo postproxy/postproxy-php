@@ -8,6 +8,7 @@ class PlatformResult extends Model
     public ?string $status = null;
     public ?array $params = null;
     public ?string $error = null;
+    public mixed $errorDetails = null;
     public mixed $attemptedAt = null;
     public mixed $insights = null;
 
@@ -17,6 +18,9 @@ class PlatformResult extends Model
         $this->attemptedAt = self::parseTime($this->attemptedAt);
         if (is_array($this->insights)) {
             $this->insights = new Insights($this->insights);
+        }
+        if (is_array($this->errorDetails)) {
+            $this->errorDetails = new ErrorDetails($this->errorDetails);
         }
     }
 
