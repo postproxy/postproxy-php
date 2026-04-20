@@ -72,6 +72,12 @@ class Posts
             if ($draft !== null) {
                 $formData['post[draft]'] = $draft ? 'true' : 'false';
             }
+            if ($queueId !== null) {
+                $formData['queue_id'] = $queueId;
+            }
+            if ($queuePriority !== null) {
+                $formData['queue_priority'] = $queuePriority;
+            }
 
             $files = [];
 
@@ -194,6 +200,12 @@ class Posts
             }
             if ($draft !== null) {
                 $formData['post[draft]'] = $draft ? 'true' : 'false';
+            }
+            if ($queueId !== null) {
+                $formData['queue_id'] = $queueId;
+            }
+            if ($queuePriority !== null) {
+                $formData['queue_priority'] = $queuePriority;
             }
 
             $files = [];
