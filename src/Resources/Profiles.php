@@ -6,6 +6,7 @@ use PostProxy\Client;
 use PostProxy\Types\ListResponse;
 use PostProxy\Types\Placement;
 use PostProxy\Types\Profile;
+use PostProxy\Types\ProfileStatsResponse;
 use PostProxy\Types\SuccessResponse;
 
 class Profiles
@@ -30,6 +31,32 @@ class Profiles
         $result = $this->client->request('GET', "/profiles/{$id}/placements", profileGroupId: $profileGroupId);
         $items = array_map(fn($p) => new Placement($p), $result['data'] ?? []);
         return new ListResponse(data: $items);
+    }
+
+    /**
+     * Fetch profile stats timeseries.
+     *
+     * `$placementId` is required for facebook, linkedin, and telegram profiles.
+     */
+    public function getProfileStats(
+        string $id,
+        ?string $placementId = null,
+        ?string $from = null,
+        ?string $to = null,
+        ?string $profileGroupId = null,
+    ): ProfileStatsResponse {
+        $params = [];
+        if ($placementId !== null) $params['placement_id'] = $placementId;
+        if ($from !== null) $params['from'] = $from;
+        if ($to !== null) $params['to'] = $to;
+
+        $result = $this->client->request(
+            'GET',
+            "/profiles/{$id}/stats",
+            params: $params ?: null,
+            profileGroupId: $profileGroupId,
+        );
+        return new ProfileStatsResponse($result);
     }
 
     public function delete(string $id, ?string $profileGroupId = null): SuccessResponse

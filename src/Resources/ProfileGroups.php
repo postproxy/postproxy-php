@@ -3,10 +3,12 @@
 namespace PostProxy\Resources;
 
 use PostProxy\Client;
+use PostProxy\Types\BlueskyConnectionResponse;
 use PostProxy\Types\ConnectionResponse;
 use PostProxy\Types\DeleteResponse;
 use PostProxy\Types\ListResponse;
 use PostProxy\Types\ProfileGroup;
+use PostProxy\Types\TelegramConnectionResponse;
 
 class ProfileGroups
 {
@@ -37,12 +39,40 @@ class ProfileGroups
         return new DeleteResponse($result);
     }
 
-    public function initializeConnection(string $id, string $platform, string $redirectUrl): ConnectionResponse
+    /**
+     * Initialize an OAuth connection. BlueSky and Telegram have dedicated
+     * helpers (`connectBluesky`, `connectTelegram`).
+     */
+    public function initializeConnection(string $id, string $platform, ?string $redirectUrl = null): ConnectionResponse
+    {
+        $body = ['platform' => $platform];
+        if ($redirectUrl !== null) {
+            $body['redirect_url'] = $redirectUrl;
+        }
+        $result = $this->client->request('POST', "/profile_groups/{$id}/initialize_connection", json: $body);
+        return new ConnectionResponse($result);
+    }
+
+    public function connectBluesky(string $id, string $identifier, string $appPassword): BlueskyConnectionResponse
     {
         $result = $this->client->request('POST', "/profile_groups/{$id}/initialize_connection", json: [
-            'platform' => $platform,
-            'redirect_url' => $redirectUrl,
+            'platform' => 'bluesky',
+            'identifier' => $identifier,
+            'app_password' => $appPassword,
         ]);
-        return new ConnectionResponse($result);
+        return new BlueskyConnectionResponse($result);
+    }
+
+    /**
+     * After this call, poll `profiles->placements($profileId)` until non-empty —
+     * the bot must be added as administrator to a Telegram channel first.
+     */
+    public function connectTelegram(string $id, string $botToken): TelegramConnectionResponse
+    {
+        $result = $this->client->request('POST', "/profile_groups/{$id}/initialize_connection", json: [
+            'platform' => 'telegram',
+            'bot_token' => $botToken,
+        ]);
+        return new TelegramConnectionResponse($result);
     }
 }

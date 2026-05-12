@@ -135,6 +135,7 @@ class Client
                 'multipart' => $multipart,
                 'headers' => [
                     'Authorization' => "Bearer {$this->apiKey}",
+                    'User-Agent' => $this->userAgent(),
                 ],
                 'http_errors' => false,
             ]);
@@ -143,6 +144,7 @@ class Client
                 'headers' => [
                     'Authorization' => "Bearer {$this->apiKey}",
                     'Content-Type' => 'application/json',
+                    'User-Agent' => $this->userAgent(),
                 ],
             ];
 
@@ -155,6 +157,11 @@ class Client
         }
 
         return $this->handleResponse($response);
+    }
+
+    private function userAgent(): string
+    {
+        return sprintf('postproxy-php/%s (php/%s)', Constants::VERSION, PHP_VERSION);
     }
 
     private function handleResponse(\Psr\Http\Message\ResponseInterface $response): ?array

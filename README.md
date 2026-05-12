@@ -216,6 +216,29 @@ $isValid = WebhookSignature::verify(
 );
 ```
 
+#### Event types and typed payloads
+
+Subscribe to any of these events (or pass `["*"]` for all):
+
+`post.processed`, `post.imported`, `platform_post.published`, `platform_post.failed`, `platform_post.failed_waiting_for_retry`, `platform_post.insights`, `profile.connected`, `profile.disconnected`, `profile.stats`, `media.failed`, `comment.created`.
+
+`WebhookEvents::parse` validates the envelope and returns a typed `Event` — `$event->data` is the right model for the event:
+
+```php
+use PostProxy\WebhookEvents;
+use PostProxy\Types\WebhookEvents\ProfileStatsData;
+use PostProxy\Types\WebhookEvents\PlatformPostData;
+use PostProxy\Types\WebhookEvents\CommentCreatedData;
+
+$event = WebhookEvents::parse($request->getContent());
+match ($event->type) {
+    'profile.stats' => /** @var ProfileStatsData $d */ $d = $event->data,
+    'platform_post.published' => /** @var PlatformPostData $d */ $d = $event->data,
+    'comment.created' => /** @var CommentCreatedData $d */ $d = $event->data,
+    default => null,
+};
+```
+
 ### Comments
 
 ```php
@@ -267,6 +290,20 @@ $placements = $client->profiles()->placements('prof-id');
 
 // Delete a profile
 $result = $client->profiles()->delete('prof-id');
+
+// Profile stats timeseries — placementId required for facebook, linkedin, telegram
+$stats = $client->profiles()->getProfileStats(
+    'prof_li_001',
+    placementId: '108520199',
+    from: '2026-04-01T00:00:00Z',
+);
+foreach ($stats->data->records as $r) {
+    echo $r->recordedAt . ': ' . $r->stats['followerCount'] . "\n";
+}
+
+// Bluesky — no placements
+$bsky = $client->profiles()->getProfileStats('prof_bsky_001');
+echo end($bsky->data->records)->stats['followersCount'];
 ```
 
 ### Profile Groups
@@ -291,6 +328,28 @@ $connection = $client->profileGroups()->initializeConnection(
     redirectUrl: 'https://myapp.com/callback',
 );
 echo $connection->url; // Redirect user here
+
+// BlueSky — app password (synchronous)
+$bsky = $client->profileGroups()->connectBluesky(
+    'pg-id',
+    identifier: 'yourname.bsky.social',
+    appPassword: 'xxxx-xxxx-xxxx-xxxx',
+);
+echo $bsky->profile->id;
+
+// Telegram — bring-your-own-bot. Channels populate asynchronously; poll
+// placements until non-empty.
+$tg = $client->profileGroups()->connectTelegram(
+    'pg-id',
+    botToken: '123456789:ABCdef-GhIJklMnOpQrStUvWxYz',
+);
+echo $tg->nextStep;
+
+$placements = [];
+while (empty($placements)) {
+    $placements = $client->profiles()->placements($tg->profile->id)->data;
+    if (empty($placements)) sleep(3);
+}
 ```
 
 ## Platform Parameters
@@ -299,14 +358,24 @@ echo $connection->url; // Redirect user here
 use PostProxy\Types\PlatformParams\PlatformParams;
 use PostProxy\Types\PlatformParams\FacebookParams;
 use PostProxy\Types\PlatformParams\InstagramParams;
+use PostProxy\Types\PlatformParams\TelegramParams;
+use PostProxy\Types\PlatformParams\BlueskyParams;
 
 $platforms = new PlatformParams([
     'facebook' => new FacebookParams(['format' => 'post', 'first_comment' => 'Hi!']),
     'instagram' => new InstagramParams(['format' => 'reel']),
+    'bluesky' => new BlueskyParams(['format' => 'post']),
+    'telegram' => new TelegramParams([
+        'chat_id' => '-1001234567890',
+        'parse_mode' => 'HTML',
+        'disable_link_preview' => true,
+    ]),
 ]);
 
 $post = $client->posts()->create('Hello!', profiles: ['prof-1'], platforms: $platforms);
 ```
+
+Supported platforms: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram`. Telegram requires a `chat_id` per post — list channels with `$client->profiles()->placements($profileId)`.
 
 ## Error Handling
 

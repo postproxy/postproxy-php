@@ -14,6 +14,8 @@ class PlatformParams extends Model
     public ?PinterestParams $pinterest = null;
     public ?ThreadsParams $threads = null;
     public ?TwitterParams $twitter = null;
+    public ?BlueskyParams $bluesky = null;
+    public ?TelegramParams $telegram = null;
 
     public function toArray(): array
     {
@@ -21,6 +23,7 @@ class PlatformParams extends Model
         $platforms = [
             'facebook', 'instagram', 'tiktok', 'linkedin',
             'youtube', 'pinterest', 'threads', 'twitter',
+            'bluesky', 'telegram',
         ];
 
         foreach ($platforms as $platform) {

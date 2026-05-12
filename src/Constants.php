@@ -6,9 +6,12 @@ class Constants
 {
     public const DEFAULT_BASE_URL = 'https://api.postproxy.dev';
 
+    public const VERSION = '1.8.0';
+
     public const PLATFORMS = [
         'facebook', 'instagram', 'tiktok', 'linkedin',
         'youtube', 'twitter', 'threads', 'pinterest',
+        'bluesky', 'telegram',
     ];
 
     public const PROFILE_STATUSES = ['active', 'expired', 'inactive'];
@@ -27,6 +30,8 @@ class Constants
     public const PINTEREST_FORMATS = ['pin'];
     public const THREADS_FORMATS = ['post'];
     public const TWITTER_FORMATS = ['post'];
+    public const BLUESKY_FORMATS = ['post'];
+    public const TELEGRAM_FORMATS = ['post'];
 
     public const TIKTOK_PRIVACIES = [
         'PUBLIC_TO_EVERYONE', 'MUTUAL_FOLLOW_FRIENDS',
@@ -34,4 +39,20 @@ class Constants
     ];
 
     public const YOUTUBE_PRIVACIES = ['public', 'unlisted', 'private'];
+
+    public const TELEGRAM_PARSE_MODES = ['HTML', 'MarkdownV2'];
+
+    public const WEBHOOK_EVENT_TYPES = [
+        'post.processed',
+        'post.imported',
+        'platform_post.published',
+        'platform_post.failed',
+        'platform_post.failed_waiting_for_retry',
+        'platform_post.insights',
+        'profile.connected',
+        'profile.disconnected',
+        'profile.stats',
+        'media.failed',
+        'comment.created',
+    ];
 }
