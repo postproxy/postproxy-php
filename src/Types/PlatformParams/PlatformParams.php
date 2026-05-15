@@ -16,6 +16,8 @@ class PlatformParams extends Model
     public ?TwitterParams $twitter = null;
     public ?BlueskyParams $bluesky = null;
     public ?TelegramParams $telegram = null;
+    /** @var array<string, mixed>|null */
+    public ?array $googleBusiness = null;
 
     public function toArray(): array
     {
@@ -34,6 +36,10 @@ class PlatformParams extends Model
 
             $params = $value instanceof Model ? $value->toArray() : $value;
             $result[$platform] = array_filter($params, fn($v) => $v !== null);
+        }
+
+        if ($this->googleBusiness !== null) {
+            $result['google_business'] = $this->googleBusiness;
         }
 
         return $result;

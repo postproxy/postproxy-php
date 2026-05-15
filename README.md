@@ -276,6 +276,33 @@ $client->comments()->like('post-id', 'comment-id', profileId: 'profile-id');
 $client->comments()->unlike('post-id', 'comment-id', profileId: 'profile-id');
 ```
 
+### Profile comments (Google Business reviews)
+
+Profile-level comments expose Google Business reviews and replies. Reviews are user-generated — the SDK lets you list/get them and reply to or delete your own replies. Reviews sync twice daily.
+
+```php
+// List reviews for a profile (paginated)
+$reviews = $client->profileComments()->list('profile-id');
+foreach ($reviews->data as $review) {
+    echo "{$review->authorUsername}: {$review->body}\n";
+    foreach ($review->replies as $reply) {
+        echo "  reply: {$reply->body}\n";
+    }
+}
+
+// Filter by placement (location)
+$reviews = $client->profileComments()->list('profile-id', placementId: 'accounts/123/locations/456');
+
+// Get a single review
+$review = $client->profileComments()->get('profile-id', 'review-id');
+
+// Reply to a review (parentId is the review id)
+$reply = $client->profileComments()->create('profile-id', parentId: 'review-id', text: 'Thanks for visiting!');
+
+// Delete your reply
+$client->profileComments()->delete('profile-id', 'reply-id');
+```
+
 ### Profiles
 
 ```php
@@ -375,7 +402,24 @@ $platforms = new PlatformParams([
 $post = $client->posts()->create('Hello!', profiles: ['prof-1'], platforms: $platforms);
 ```
 
-Supported platforms: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram`. Telegram requires a `chat_id` per post — list channels with `$client->profiles()->placements($profileId)`.
+Supported platforms: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram`, `google_business`. Telegram requires a `chat_id` per post — list channels with `$client->profiles()->placements($profileId)`.
+
+#### Google Business
+
+Google Business posts use the `googleBusiness` property on `PlatformParams` (a plain associative array). The `location_id` is the location resource path returned by `$client->profiles()->placements()`. Supported formats: `standard`, `event`, `offer`. CTA actions: `LEARN_MORE`, `BOOK`, `ORDER`, `SHOP`, `SIGN_UP`, `CALL`. Media is limited to one image (≤5 MB).
+
+```php
+use PostProxy\Types\PlatformParams\PlatformParams;
+
+$platforms = new PlatformParams([
+    'google_business' => [
+        'format' => 'standard',
+        'location_id' => 'accounts/123/locations/456',
+        'cta_action_type' => 'LEARN_MORE',
+        'cta_url' => 'https://example.com',
+    ],
+]);
+```
 
 ## Error Handling
 

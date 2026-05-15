@@ -6,12 +6,12 @@ class Constants
 {
     public const DEFAULT_BASE_URL = 'https://api.postproxy.dev';
 
-    public const VERSION = '1.8.0';
+    public const VERSION = '1.9.0';
 
     public const PLATFORMS = [
         'facebook', 'instagram', 'tiktok', 'linkedin',
         'youtube', 'twitter', 'threads', 'pinterest',
-        'bluesky', 'telegram',
+        'bluesky', 'telegram', 'google_business',
     ];
 
     public const PROFILE_STATUSES = ['active', 'expired', 'inactive'];
