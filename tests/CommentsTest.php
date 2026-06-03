@@ -4,6 +4,7 @@ namespace PostProxy\Tests;
 
 use PostProxy\Types\AcceptedResponse;
 use PostProxy\Types\Comment;
+use PostProxy\Types\Message;
 use PostProxy\Types\PaginatedResponse;
 
 class CommentsTest extends TestCase
@@ -193,5 +194,57 @@ class CommentsTest extends TestCase
 
         $this->assertTrue($result->accepted);
         $this->assertStringContainsString('/comments/cmt_abc123/unlike', $this->lastRequestUri());
+    }
+
+    public function testCommentAttachmentsAndMetadata(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, array_merge(self::MOCK_COMMENT, [
+            'metadata' => ['is_verified_user' => true, 'follower_count' => 482],
+            'attachments' => [
+                [
+                    'id' => 'att_xyz321',
+                    'type' => 'image',
+                    'url' => 'https://storage.postproxy.dev/x',
+                    'status' => 'processed',
+                    'external_id' => '529233764205652',
+                ],
+            ],
+        ]));
+
+        $comment = $client->comments()->get('post1', 'cmt_abc123', 'prof1');
+
+        $this->assertEquals(482, $comment->metadata['follower_count']);
+        $this->assertCount(1, $comment->attachments);
+        $this->assertEquals('image', $comment->attachments[0]->type);
+        $this->assertEquals('processed', $comment->attachments[0]->status);
+        $this->assertEquals('att_xyz321', $comment->attachments[0]->id);
+    }
+
+    public function testPrivateReply(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(202, [
+            'id' => 'msg_222',
+            'chat_id' => 'chat_xyz789',
+            'direction' => 'outbound',
+            'body' => 'DM-ing you the details.',
+            'status' => 'pending',
+            'external_comment_id' => '17858893269123456',
+            'reactions' => [],
+            'attachments' => [],
+            'is_unsupported' => false,
+            'created_at' => '2026-05-31T15:30:05.000Z',
+        ]);
+
+        $msg = $client->comments()->privateReply('post1', 'cmt_abc123', 'prof1', 'DM-ing you the details.');
+
+        $this->assertInstanceOf(Message::class, $msg);
+        $this->assertEquals('17858893269123456', $msg->externalCommentId);
+
+        $body = $this->lastRequestBody();
+        $this->assertEquals('DM-ing you the details.', $body['text']);
+        $this->assertStringContainsString('/posts/post1/comments/cmt_abc123/private_reply', $this->lastRequestUri());
+        $this->assertStringContainsString('profile_id=prof1', $this->lastRequestUri());
     }
 }

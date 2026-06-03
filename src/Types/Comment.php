@@ -11,11 +11,14 @@ class Comment extends Model
     public ?string $authorUsername = null;
     public ?string $authorAvatarUrl = null;
     public ?string $authorExternalId = null;
+    public mixed $metadata = null;
     public ?string $parentExternalId = null;
     public int $likeCount = 0;
     public bool $isHidden = false;
     public ?string $permalink = null;
     public mixed $platformData = null;
+    /** @var Attachment[] */
+    public array $attachments = [];
     public mixed $postedAt = null;
     public mixed $createdAt = null;
     public array $replies = [];
@@ -25,6 +28,9 @@ class Comment extends Model
         parent::__construct($attrs);
         $this->postedAt = self::parseTime($this->postedAt);
         $this->createdAt = self::parseTime($this->createdAt);
+        $this->attachments = array_map(function ($a) {
+            return $a instanceof Attachment ? $a : new Attachment($a);
+        }, $this->attachments ?? []);
         $this->replies = array_map(function ($r) {
             if ($r instanceof Comment) {
                 return $r;

@@ -17,6 +17,14 @@ $comments = $client->comments()->list($postId, $profileId);
 echo "Total comments: {$comments->total}\n";
 foreach ($comments->data as $comment) {
     echo "  {$comment->authorUsername}: {$comment->body}\n";
+    // Media attachments on the comment (image/video/gif/etc.)
+    foreach ($comment->attachments as $att) {
+        echo "    attachment: {$att->type} -> {$att->url}\n";
+    }
+    // Author signals exposed via metadata (verification, follower count, ...)
+    if ($comment->metadata !== null) {
+        echo "    metadata: " . json_encode($comment->metadata) . "\n";
+    }
     foreach ($comment->replies as $reply) {
         echo "    {$reply->authorUsername}: {$reply->body}\n";
     }
@@ -43,6 +51,11 @@ echo "Comment liked\n";
 
 $client->comments()->unlike($postId, $newComment->id, $profileId);
 echo "Comment unliked\n";
+
+// Private reply (Instagram/Facebook) — sends a DM in response to a comment.
+// Returns a Message, not a Comment.
+$privateReply = $client->comments()->privateReply($postId, $newComment->id, $profileId, 'DM-ing you the details!');
+echo "Private reply queued: {$privateReply->id} (chat: {$privateReply->chatId})\n";
 
 // Delete
 $client->comments()->delete($postId, $newComment->id, $profileId);

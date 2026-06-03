@@ -3,13 +3,17 @@
 namespace PostProxy\Tests;
 
 use PostProxy\Exceptions\WebhookParseException;
+use PostProxy\Types\Message;
 use PostProxy\Types\WebhookEvents\CommentCreatedData;
 use PostProxy\Types\WebhookEvents\MediaFailedData;
+use PostProxy\Types\WebhookEvents\MessageEventData;
 use PostProxy\Types\WebhookEvents\PlatformPostData;
 use PostProxy\Types\WebhookEvents\PostImportedData;
 use PostProxy\Types\WebhookEvents\PostProcessedData;
+use PostProxy\Types\WebhookEvents\ProfileCommentCreatedData;
 use PostProxy\Types\WebhookEvents\ProfileEventData;
 use PostProxy\Types\WebhookEvents\ProfileStatsData;
+use PostProxy\Types\WebhookEvents\ReactionEventData;
 use PostProxy\WebhookEvents;
 
 class WebhookEventsTest extends TestCase
@@ -115,6 +119,88 @@ class WebhookEventsTest extends TestCase
         ]));
         $this->assertInstanceOf(CommentCreatedData::class, $event->data);
         $this->assertSame('Jane', $event->data->authorName);
+    }
+
+    private function message(array $overrides = []): array
+    {
+        return array_merge([
+            'id' => 'msg_1',
+            'chat_id' => 'chat_1',
+            'external_id' => 'mid.1',
+            'direction' => 'inbound',
+            'body' => 'hello',
+            'status' => 'received',
+            'reactions' => [],
+            'attachments' => [],
+            'is_unsupported' => false,
+            'created_at' => '2026-06-01T15:00:00Z',
+        ], $overrides);
+    }
+
+    public function test_parses_message_events(): void
+    {
+        foreach ([
+            'message.received',
+            'message.sent',
+            'message.delivered',
+            'message.read',
+            'message.edited',
+            'message.deleted',
+            'message.failed_waiting_for_retry',
+            'message.failed',
+        ] as $type) {
+            $event = WebhookEvents::parse($this->envelope($type, [
+                'message' => $this->message(),
+            ]));
+            $this->assertSame($type, $event->type);
+            $this->assertInstanceOf(MessageEventData::class, $event->data);
+            $this->assertInstanceOf(Message::class, $event->data->message);
+            $this->assertSame('msg_1', $event->data->message->id);
+        }
+    }
+
+    public function test_parses_reaction_received(): void
+    {
+        $event = WebhookEvents::parse($this->envelope('reaction.received', [
+            'message' => $this->message([
+                'reactions' => [
+                    ['sender_external_id' => 'psid_123', 'emoji' => '❤️', 'reaction' => 'love', 'at' => '2026-06-01T15:02:00Z'],
+                ],
+            ]),
+            'sender_external_id' => 'psid_123',
+            'action' => 'react',
+            'reaction' => 'love',
+            'emoji' => '❤️',
+            'occurred_at' => '2026-06-01T15:02:00Z',
+        ]));
+
+        $this->assertInstanceOf(ReactionEventData::class, $event->data);
+        $this->assertSame('react', $event->data->action);
+        $this->assertInstanceOf(Message::class, $event->data->message);
+        $this->assertSame('love', $event->data->message->reactions[0]->reaction);
+    }
+
+    public function test_parses_profile_comment_created(): void
+    {
+        $event = WebhookEvents::parse($this->envelope('profile_comment.created', [
+            'id' => 'abc123',
+            'profile_id' => 'prof123',
+            'platform' => 'google_business',
+            'placement_id' => 'accounts/1/locations/2',
+            'external_id' => 'accounts/1/locations/2/reviews/A',
+            'parent_external_id' => null,
+            'body' => 'Great coffee!',
+            'status' => 'synced',
+            'author_username' => 'Jane D.',
+            'author_avatar_url' => null,
+            'platform_data' => ['star_rating' => 5],
+            'posted_at' => '2026-05-10T11:55:00Z',
+            'created_at' => '2026-05-13T18:00:00Z',
+        ]));
+
+        $this->assertInstanceOf(ProfileCommentCreatedData::class, $event->data);
+        $this->assertSame('prof123', $event->data->profileId);
+        $this->assertSame(5, $event->data->platformData['star_rating']);
     }
 
     public function test_accepts_array_body(): void

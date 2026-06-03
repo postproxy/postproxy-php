@@ -18,6 +18,8 @@ use PostProxy\Resources\Webhooks;
 use PostProxy\Resources\Queues;
 use PostProxy\Resources\Comments;
 use PostProxy\Resources\ProfileComments;
+use PostProxy\Resources\Chats;
+use PostProxy\Resources\Messages;
 
 class Client
 {
@@ -29,6 +31,8 @@ class Client
     private ?Queues $queues = null;
     private ?Comments $comments = null;
     private ?ProfileComments $profileComments = null;
+    private ?Chats $chats = null;
+    private ?Messages $messages = null;
 
     public function __construct(
         public readonly string $apiKey,
@@ -74,6 +78,16 @@ class Client
     public function profileComments(): ProfileComments
     {
         return $this->profileComments ??= new ProfileComments($this);
+    }
+
+    public function chats(): Chats
+    {
+        return $this->chats ??= new Chats($this);
+    }
+
+    public function messages(): Messages
+    {
+        return $this->messages ??= new Messages($this);
     }
 
     /**

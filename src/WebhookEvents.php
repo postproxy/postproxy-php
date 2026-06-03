@@ -6,11 +6,14 @@ use PostProxy\Exceptions\WebhookParseException;
 use PostProxy\Types\WebhookEvents\CommentCreatedData;
 use PostProxy\Types\WebhookEvents\Event;
 use PostProxy\Types\WebhookEvents\MediaFailedData;
+use PostProxy\Types\WebhookEvents\MessageEventData;
 use PostProxy\Types\WebhookEvents\PlatformPostData;
 use PostProxy\Types\WebhookEvents\PostImportedData;
 use PostProxy\Types\WebhookEvents\PostProcessedData;
+use PostProxy\Types\WebhookEvents\ProfileCommentCreatedData;
 use PostProxy\Types\WebhookEvents\ProfileEventData;
 use PostProxy\Types\WebhookEvents\ProfileStatsData;
+use PostProxy\Types\WebhookEvents\ReactionEventData;
 
 class WebhookEvents
 {
@@ -26,6 +29,16 @@ class WebhookEvents
         'profile.stats' => ProfileStatsData::class,
         'media.failed' => MediaFailedData::class,
         'comment.created' => CommentCreatedData::class,
+        'profile_comment.created' => ProfileCommentCreatedData::class,
+        'message.received' => MessageEventData::class,
+        'message.sent' => MessageEventData::class,
+        'message.delivered' => MessageEventData::class,
+        'message.read' => MessageEventData::class,
+        'message.edited' => MessageEventData::class,
+        'message.deleted' => MessageEventData::class,
+        'message.failed_waiting_for_retry' => MessageEventData::class,
+        'message.failed' => MessageEventData::class,
+        'reaction.received' => ReactionEventData::class,
     ];
 
     /**

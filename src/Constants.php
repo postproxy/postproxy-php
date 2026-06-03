@@ -6,7 +6,7 @@ class Constants
 {
     public const DEFAULT_BASE_URL = 'https://api.postproxy.dev';
 
-    public const VERSION = '1.9.0';
+    public const VERSION = '1.10.0';
 
     public const PLATFORMS = [
         'facebook', 'instagram', 'tiktok', 'linkedin',
@@ -42,6 +42,16 @@ class Constants
 
     public const TELEGRAM_PARSE_MODES = ['HTML', 'MarkdownV2'];
 
+    public const MESSAGE_DIRECTIONS = ['inbound', 'outbound'];
+
+    public const MESSAGE_STATUSES = [
+        'pending',
+        'published',
+        'failed_waiting_for_retry',
+        'failed',
+        'received',
+    ];
+
     public const WEBHOOK_EVENT_TYPES = [
         'post.processed',
         'post.imported',
@@ -54,5 +64,15 @@ class Constants
         'profile.stats',
         'media.failed',
         'comment.created',
+        'profile_comment.created',
+        'message.received',
+        'message.sent',
+        'message.delivered',
+        'message.read',
+        'message.edited',
+        'message.deleted',
+        'message.failed_waiting_for_retry',
+        'message.failed',
+        'reaction.received',
     ];
 }

@@ -5,6 +5,7 @@ namespace PostProxy\Resources;
 use PostProxy\Client;
 use PostProxy\Types\AcceptedResponse;
 use PostProxy\Types\Comment;
+use PostProxy\Types\Message;
 use PostProxy\Types\PaginatedResponse;
 
 class Comments
@@ -111,5 +112,17 @@ class Comments
         $params = ['profile_id' => $profileId];
         $result = $this->client->request('POST', "/posts/{$postId}/comments/{$commentId}/unlike", params: $params, profileGroupId: $profileGroupId);
         return new AcceptedResponse($result);
+    }
+
+    public function privateReply(
+        string $postId,
+        string $commentId,
+        string $profileId,
+        string $text,
+        ?string $profileGroupId = null,
+    ): Message {
+        $params = ['profile_id' => $profileId];
+        $result = $this->client->request('POST', "/posts/{$postId}/comments/{$commentId}/private_reply", params: $params, json: ['text' => $text], profileGroupId: $profileGroupId);
+        return new Message($result);
     }
 }

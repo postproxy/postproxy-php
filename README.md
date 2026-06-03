@@ -220,21 +220,27 @@ $isValid = WebhookSignature::verify(
 
 Subscribe to any of these events (or pass `["*"]` for all):
 
-`post.processed`, `post.imported`, `platform_post.published`, `platform_post.failed`, `platform_post.failed_waiting_for_retry`, `platform_post.insights`, `profile.connected`, `profile.disconnected`, `profile.stats`, `media.failed`, `comment.created`.
+`post.processed`, `post.imported`, `platform_post.published`, `platform_post.failed`, `platform_post.failed_waiting_for_retry`, `platform_post.insights`, `profile.connected`, `profile.disconnected`, `profile.stats`, `media.failed`, `comment.created`, `profile_comment.created`, `message.received`, `message.sent`, `message.delivered`, `message.read`, `message.edited`, `message.deleted`, `message.failed_waiting_for_retry`, `message.failed`, `reaction.received`.
 
-`WebhookEvents::parse` validates the envelope and returns a typed `Event` — `$event->data` is the right model for the event:
+`WebhookEvents::parse` validates the envelope and returns a typed `Event` — `$event->data` is the right model for the event. Direct-message events share three reusable payload shapes: the eight `message.*` events decode to `MessageEventData` (which wraps a `Message`), `reaction.received` decodes to `ReactionEventData`, and `profile_comment.created` decodes to `ProfileCommentCreatedData`:
 
 ```php
 use PostProxy\WebhookEvents;
 use PostProxy\Types\WebhookEvents\ProfileStatsData;
 use PostProxy\Types\WebhookEvents\PlatformPostData;
 use PostProxy\Types\WebhookEvents\CommentCreatedData;
+use PostProxy\Types\WebhookEvents\MessageEventData;
+use PostProxy\Types\WebhookEvents\ReactionEventData;
+use PostProxy\Types\WebhookEvents\ProfileCommentCreatedData;
 
 $event = WebhookEvents::parse($request->getContent());
 match ($event->type) {
     'profile.stats' => /** @var ProfileStatsData $d */ $d = $event->data,
     'platform_post.published' => /** @var PlatformPostData $d */ $d = $event->data,
     'comment.created' => /** @var CommentCreatedData $d */ $d = $event->data,
+    'profile_comment.created' => /** @var ProfileCommentCreatedData $d */ $d = $event->data,
+    'message.received', 'message.sent' => /** @var MessageEventData $d */ $d = $event->data, // $d->message is a Message
+    'reaction.received' => /** @var ReactionEventData $d */ $d = $event->data,
     default => null,
 };
 ```
@@ -246,6 +252,17 @@ match ($event->type) {
 $comments = $client->comments()->list('post-id', profileId: 'profile-id');
 foreach ($comments->data as $comment) {
     echo "{$comment->authorUsername}: {$comment->body}\n";
+
+    // Media attachments on the comment (image/video/gif/external/file).
+    foreach ($comment->attachments as $att) {
+        echo "  attachment: {$att->type} -> {$att->url}\n";
+    }
+
+    // Author signals (verification, follower count, ...) when the platform provides them.
+    if ($comment->metadata !== null) {
+        echo "  metadata: " . json_encode($comment->metadata) . "\n";
+    }
+
     foreach ($comment->replies as $reply) {
         echo "  {$reply->authorUsername}: {$reply->body}\n";
     }
@@ -274,6 +291,64 @@ $client->comments()->unhide('post-id', 'comment-id', profileId: 'profile-id');
 // Like / unlike a comment
 $client->comments()->like('post-id', 'comment-id', profileId: 'profile-id');
 $client->comments()->unlike('post-id', 'comment-id', profileId: 'profile-id');
+
+// Privately reply to a comment via DM (Instagram/Facebook).
+// Returns a Message, not a Comment.
+$message = $client->comments()->privateReply('post-id', 'comment-id', profileId: 'profile-id', text: 'DM-ing you the details!');
+echo "Reply queued as message {$message->id} in chat {$message->chatId}\n";
+```
+
+### Direct Messages
+
+Manage one-to-one conversations (Facebook, Instagram, Telegram, Bluesky) through two resources: `chats()` for conversations and `messages()` for the messages within them.
+
+```php
+// List chats for a DM-capable profile (paginated)
+$chats = $client->chats()->list('profile-id', perPage: 20);
+foreach ($chats->data as $chat) {
+    $who = $chat->participantUsername ?? $chat->participantExternalId;
+    echo "{$who}: last message at " . ($chat->lastMessageAt?->format('c') ?? 'never') . "\n";
+}
+
+// Find or create a chat with a participant
+$chat = $client->chats()->create('profile-id', 'participant-external-id', participantUsername: 'jane_doe');
+
+// Get a single chat
+$chat = $client->chats()->get('chat-id');
+
+// Archive / unarchive a chat (Bluesky only)
+$client->chats()->archive('chat-id');
+$client->chats()->unarchive('chat-id');
+
+// List messages in a chat (filter by direction/status)
+$messages = $client->messages()->list('chat-id', direction: 'inbound');
+foreach ($messages->data as $msg) {
+    echo "[{$msg->direction}] {$msg->body}\n";
+    foreach ($msg->attachments as $att) {
+        echo "  attachment: {$att->type} -> {$att->url}\n";
+    }
+    foreach ($msg->reactions as $reaction) {
+        echo "  reaction: {$reaction->emoji}\n";
+    }
+}
+
+// Send a text message (within the platform's messaging window)
+$sent = $client->messages()->send('chat-id', body: 'Yes, we ship worldwide!');
+
+// Send with a messaging tag (Facebook/Instagram), by hosted URL, or from a local file
+$client->messages()->send('chat-id', body: 'Following up.', tag: 'HUMAN_AGENT');
+$client->messages()->send('chat-id', media: ['https://cdn.example.com/photo.png']);
+$client->messages()->send('chat-id', mediaFiles: ['./photo.png']);
+
+// Get a single message
+$message = $client->messages()->get('message-id');
+
+// Edit an outbound message (Telegram only)
+$client->messages()->edit('message-id', body: 'Updated answer.');
+
+// React / unreact (Facebook & Instagram)
+$client->messages()->react('message-id', reaction: 'love', emoji: '❤️');
+$client->messages()->unreact('message-id');
 ```
 
 ### Profile comments (Google Business reviews)
