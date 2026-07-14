@@ -69,3 +69,14 @@ $reply = $client->comments()->privateReply(
     'Thanks — DM-ing you the details.',
 );
 echo "Private reply queued: {$reply->id} (chat: {$reply->chatId})\n";
+
+// Ice breakers (Instagram only): FAQ prompts shown when a user opens a chat
+$client->profiles()->setIceBreakers($profileId, [
+    ['question' => 'What services do you offer?', 'payload' => 'services'],
+    ['question' => 'What are your hours?', 'payload' => 'hours'],
+]);
+$result = $client->profiles()->iceBreakers($profileId);
+foreach ($result->iceBreakers as $ib) {
+    echo "Ice breaker: {$ib->question}\n";
+}
+// $client->profiles()->deleteIceBreakers($profileId);

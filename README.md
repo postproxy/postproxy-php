@@ -390,6 +390,27 @@ $profile = $client->profiles()->get('prof-id');
 // Get placements for a profile
 $placements = $client->profiles()->placements('prof-id');
 
+// Move a placement (e.g. a Facebook Page or Telegram channel) to another group
+$placement = $client->profiles()->assignPlacementToGroup(
+    'prof-id',
+    'placement-external-id',
+    'pg-other',
+);
+echo $placement->profileGroupId; // "pg-other"
+
+// Ice breakers (Instagram DMs): FAQ prompts shown when a user opens a chat
+$result = $client->profiles()->iceBreakers('prof-id');
+foreach ($result->iceBreakers as $ib) {
+    echo "{$ib->question}\n";
+}
+
+$client->profiles()->setIceBreakers('prof-id', [
+    ['question' => 'What services do you offer?', 'payload' => 'services'],
+    ['question' => 'What are your hours?', 'payload' => 'hours'],
+]); // 1-4 items
+
+$client->profiles()->deleteIceBreakers('prof-id');
+
 // Delete a profile
 $result = $client->profiles()->delete('prof-id');
 
@@ -478,6 +499,8 @@ $post = $client->posts()->create('Hello!', profiles: ['prof-1'], platforms: $pla
 ```
 
 Supported platforms: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram`, `google_business`. Telegram requires a `chat_id` per post — list channels with `$client->profiles()->placements($profileId)`.
+
+Twitter supports polls: pass `new TwitterParams(['format' => 'poll', 'poll_options' => ['Yes', 'No'], 'poll_duration_minutes' => 1440])` — 2-4 options (max 25 chars each), duration 5 to 10080 minutes.
 
 #### Google Business
 

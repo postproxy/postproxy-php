@@ -8,6 +8,7 @@ use PostProxy\Types\DeletingPlatform;
 use PostProxy\Types\PaginatedResponse;
 use PostProxy\Types\PlatformParams\FacebookParams;
 use PostProxy\Types\PlatformParams\PlatformParams;
+use PostProxy\Types\PlatformParams\TwitterParams;
 use PostProxy\Types\Post;
 
 class PostsTest extends TestCase
@@ -133,6 +134,33 @@ class PostsTest extends TestCase
         $body = $this->lastRequestBody();
         $this->assertEquals('post', $body['platforms']['facebook']['format']);
         $this->assertEquals('Hi!', $body['platforms']['facebook']['first_comment']);
+    }
+
+    public function testCreateIncludesTwitterPollParams(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'id' => 'post-poll',
+            'body' => 'Which framework?',
+            'status' => 'pending',
+            'created_at' => '2025-01-01T00:00:00Z',
+            'platforms' => [],
+        ]);
+
+        $platforms = new PlatformParams([
+            'twitter' => new TwitterParams([
+                'format' => 'poll',
+                'poll_options' => ['Rails', 'Django', 'Laravel'],
+                'poll_duration_minutes' => 1440,
+            ]),
+        ]);
+
+        $client->posts()->create('Which framework?', profiles: ['prof-1'], platforms: $platforms);
+
+        $body = $this->lastRequestBody();
+        $this->assertEquals('poll', $body['platforms']['twitter']['format']);
+        $this->assertEquals(['Rails', 'Django', 'Laravel'], $body['platforms']['twitter']['poll_options']);
+        $this->assertEquals(1440, $body['platforms']['twitter']['poll_duration_minutes']);
     }
 
     public function testCreateWithThread(): void

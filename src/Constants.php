@@ -6,7 +6,7 @@ class Constants
 {
     public const DEFAULT_BASE_URL = 'https://api.postproxy.dev';
 
-    public const VERSION = '1.10.0';
+    public const VERSION = '1.11.0';
 
     public const PLATFORMS = [
         'facebook', 'instagram', 'tiktok', 'linkedin',
@@ -29,7 +29,7 @@ class Constants
     public const YOUTUBE_FORMATS = ['post'];
     public const PINTEREST_FORMATS = ['pin'];
     public const THREADS_FORMATS = ['post'];
-    public const TWITTER_FORMATS = ['post'];
+    public const TWITTER_FORMATS = ['post', 'poll'];
     public const BLUESKY_FORMATS = ['post'];
     public const TELEGRAM_FORMATS = ['post'];
 

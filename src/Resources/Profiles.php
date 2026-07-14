@@ -3,6 +3,8 @@
 namespace PostProxy\Resources;
 
 use PostProxy\Client;
+use PostProxy\Types\IceBreaker;
+use PostProxy\Types\IceBreakersResponse;
 use PostProxy\Types\ListResponse;
 use PostProxy\Types\Placement;
 use PostProxy\Types\Profile;
@@ -57,6 +59,66 @@ class Profiles
             profileGroupId: $profileGroupId,
         );
         return new ProfileStatsResponse($result);
+    }
+
+    /**
+     * Moves a placement (e.g. a Facebook Page or Telegram channel) to another
+     * profile group. `$placementId` is the placement's external ID as returned
+     * by placements().
+     */
+    public function assignPlacementToGroup(
+        string $id,
+        string $placementId,
+        string $targetProfileGroupId,
+        ?string $profileGroupId = null,
+    ): Placement {
+        $result = $this->client->request(
+            'PATCH',
+            "/profiles/{$id}/assign_placement_to_group",
+            json: [
+                'placement_id' => $placementId,
+                'target_profile_group_id' => $targetProfileGroupId,
+            ],
+            profileGroupId: $profileGroupId,
+        );
+        return new Placement($result);
+    }
+
+    /**
+     * Lists DM ice breakers. Supported for Instagram profiles only.
+     */
+    public function iceBreakers(string $id, ?string $profileGroupId = null): IceBreakersResponse
+    {
+        $result = $this->client->request('GET', "/profiles/{$id}/ice_breakers", profileGroupId: $profileGroupId);
+        return new IceBreakersResponse($result);
+    }
+
+    /**
+     * Replaces the DM ice breakers for a profile (1-4 items).
+     *
+     * @param array<IceBreaker|array{question: string, payload: string}> $iceBreakers
+     */
+    public function setIceBreakers(string $id, array $iceBreakers, ?string $profileGroupId = null): SuccessResponse
+    {
+        $items = array_map(
+            fn($ib) => $ib instanceof IceBreaker
+                ? ['question' => $ib->question, 'payload' => $ib->payload]
+                : $ib,
+            $iceBreakers,
+        );
+        $result = $this->client->request(
+            'POST',
+            "/profiles/{$id}/ice_breakers",
+            json: ['ice_breakers' => $items],
+            profileGroupId: $profileGroupId,
+        );
+        return new SuccessResponse($result);
+    }
+
+    public function deleteIceBreakers(string $id, ?string $profileGroupId = null): SuccessResponse
+    {
+        $result = $this->client->request('DELETE', "/profiles/{$id}/ice_breakers", profileGroupId: $profileGroupId);
+        return new SuccessResponse($result);
     }
 
     public function delete(string $id, ?string $profileGroupId = null): SuccessResponse

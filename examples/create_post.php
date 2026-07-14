@@ -6,6 +6,7 @@ use PostProxy\Client;
 use PostProxy\Types\PlatformParams\FacebookParams;
 use PostProxy\Types\PlatformParams\InstagramParams;
 use PostProxy\Types\PlatformParams\PlatformParams;
+use PostProxy\Types\PlatformParams\TwitterParams;
 
 $client = new Client(apiKey: 'your-api-key', profileGroupId: 'pg-123');
 
@@ -49,3 +50,17 @@ $threadPost = $client->posts()->create(
     ],
 );
 echo "Thread post: {$threadPost->id} (" . count($threadPost->thread) . " children)\n";
+
+// Twitter poll: 2-4 options (max 25 chars each), 5-10080 minutes
+$pollPost = $client->posts()->create(
+    'Which framework?',
+    profiles: ['twitter'],
+    platforms: new PlatformParams([
+        'twitter' => new TwitterParams([
+            'format' => 'poll',
+            'poll_options' => ['Rails', 'Django', 'Laravel', 'Other'],
+            'poll_duration_minutes' => 1440,
+        ]),
+    ]),
+);
+echo "Poll post: {$pollPost->id}\n";

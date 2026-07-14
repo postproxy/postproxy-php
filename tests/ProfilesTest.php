@@ -2,7 +2,10 @@
 
 namespace PostProxy\Tests;
 
+use PostProxy\Types\IceBreaker;
+use PostProxy\Types\IceBreakersResponse;
 use PostProxy\Types\ListResponse;
+use PostProxy\Types\Placement;
 use PostProxy\Types\Profile;
 use PostProxy\Types\SuccessResponse;
 
@@ -83,5 +86,74 @@ class ProfilesTest extends TestCase
 
         $this->assertInstanceOf(SuccessResponse::class, $result);
         $this->assertTrue($result->success);
+    }
+
+    public function testAssignPlacementToGroup(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'id' => 'pl-1',
+            'name' => 'Feed',
+            'metadata' => [],
+            'profile_group_id' => 'pg-2',
+        ]);
+
+        $result = $client->profiles()->assignPlacementToGroup('prof-1', 'pl-1', 'pg-2');
+
+        $this->assertInstanceOf(Placement::class, $result);
+        $this->assertEquals('pg-2', $result->profileGroupId);
+        $this->assertEquals('PATCH', $this->lastRequest()->getMethod());
+        $this->assertStringContainsString('/profiles/prof-1/assign_placement_to_group', $this->lastRequestUri());
+        $this->assertEquals(
+            ['placement_id' => 'pl-1', 'target_profile_group_id' => 'pg-2'],
+            $this->lastRequestBody(),
+        );
+    }
+
+    public function testIceBreakersReturnsList(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'ice_breakers' => [
+                ['question' => 'What do you do?', 'payload' => 'services'],
+            ],
+        ]);
+
+        $result = $client->profiles()->iceBreakers('prof-1');
+
+        $this->assertInstanceOf(IceBreakersResponse::class, $result);
+        $this->assertCount(1, $result->iceBreakers);
+        $this->assertInstanceOf(IceBreaker::class, $result->iceBreakers[0]);
+        $this->assertEquals('What do you do?', $result->iceBreakers[0]->question);
+        $this->assertStringContainsString('/profiles/prof-1/ice_breakers', $this->lastRequestUri());
+    }
+
+    public function testSetIceBreakers(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['success' => true]);
+
+        $result = $client->profiles()->setIceBreakers('prof-1', [
+            ['question' => 'What do you do?', 'payload' => 'services'],
+        ]);
+
+        $this->assertTrue($result->success);
+        $this->assertEquals('POST', $this->lastRequest()->getMethod());
+        $this->assertEquals(
+            ['ice_breakers' => [['question' => 'What do you do?', 'payload' => 'services']]],
+            $this->lastRequestBody(),
+        );
+    }
+
+    public function testDeleteIceBreakers(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['success' => true]);
+
+        $result = $client->profiles()->deleteIceBreakers('prof-1');
+
+        $this->assertTrue($result->success);
+        $this->assertEquals('DELETE', $this->lastRequest()->getMethod());
+        $this->assertStringContainsString('/profiles/prof-1/ice_breakers', $this->lastRequestUri());
     }
 }

@@ -18,3 +18,18 @@ $connection = $client->profileGroups()->initializeConnection(
 );
 
 echo "Redirect user to: {$connection->url}\n";
+
+// After connecting, list a profile's placements (Pages, channels, locations)
+$placements = $client->profiles()->placements('profile-id');
+foreach ($placements->data as $p) {
+    echo "Placement: {$p->name} ({$p->id})\n";
+}
+
+// Move one placement to a different profile group
+if (!empty($placements->data)) {
+    $client->profiles()->assignPlacementToGroup(
+        'profile-id',
+        $placements->data[0]->id,
+        'other-group-id',
+    );
+}
