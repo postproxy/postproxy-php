@@ -8,6 +8,7 @@ use GuzzleHttp\Psr7\MultipartStream;
 use GuzzleHttp\Psr7\Request;
 use PostProxy\Exceptions\AuthenticationException;
 use PostProxy\Exceptions\BadRequestException;
+use PostProxy\Exceptions\ConflictException;
 use PostProxy\Exceptions\NotFoundException;
 use PostProxy\Exceptions\PostProxyException;
 use PostProxy\Exceptions\ValidationException;
@@ -104,6 +105,7 @@ class Client
         ?array $data = null,
         ?array $files = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): ?array {
         $url = "/api{$path}";
 
@@ -152,22 +154,30 @@ class Client
                 }
             }
 
+            $headers = [
+                'Authorization' => "Bearer {$this->apiKey}",
+                'User-Agent' => $this->userAgent(),
+            ];
+            if ($idempotencyKey !== null) {
+                $headers['Idempotency-Key'] = $idempotencyKey;
+            }
+
             $response = $this->httpClient->request($method, $url, [
                 'multipart' => $multipart,
-                'headers' => [
-                    'Authorization' => "Bearer {$this->apiKey}",
-                    'User-Agent' => $this->userAgent(),
-                ],
+                'headers' => $headers,
                 'http_errors' => false,
             ]);
         } else {
-            $options = [
-                'headers' => [
-                    'Authorization' => "Bearer {$this->apiKey}",
-                    'Content-Type' => 'application/json',
-                    'User-Agent' => $this->userAgent(),
-                ],
+            $headers = [
+                'Authorization' => "Bearer {$this->apiKey}",
+                'Content-Type' => 'application/json',
+                'User-Agent' => $this->userAgent(),
             ];
+            if ($idempotencyKey !== null) {
+                $headers['Idempotency-Key'] = $idempotencyKey;
+            }
+
+            $options = ['headers' => $headers];
 
             if ($json !== null) {
                 $options['body'] = json_encode($json);
@@ -203,6 +213,7 @@ class Client
         throw match ($statusCode) {
             401 => new AuthenticationException($message, $statusCode, $parsed),
             404 => new NotFoundException($message, $statusCode, $parsed),
+            409 => new ConflictException($message, $statusCode, $parsed),
             422 => new ValidationException($message, $statusCode, $parsed),
             400 => new BadRequestException($message, $statusCode, $parsed),
             default => new PostProxyException($message, $statusCode, $parsed),

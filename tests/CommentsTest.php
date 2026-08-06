@@ -3,6 +3,7 @@
 namespace PostProxy\Tests;
 
 use PostProxy\Types\AcceptedResponse;
+use PostProxy\Types\BulkComment;
 use PostProxy\Types\Comment;
 use PostProxy\Types\Message;
 use PostProxy\Types\PaginatedResponse;
@@ -246,5 +247,90 @@ class CommentsTest extends TestCase
         $this->assertEquals('DM-ing you the details.', $body['text']);
         $this->assertStringContainsString('/posts/post1/comments/cmt_abc123/private_reply', $this->lastRequestUri());
         $this->assertStringContainsString('profile_id=prof1', $this->lastRequestUri());
+    }
+
+    private const BULK_COMMENT = [
+        'post_id' => 'abc123xyz',
+        'profile_id' => 'prof456',
+        'platform' => 'instagram',
+        'id' => 'cmt_abc123',
+        'external_id' => '17858893269123456',
+        'body' => 'Great post!',
+        'status' => 'synced',
+        'author_username' => 'someuser',
+        'parent_external_id' => null,
+        'like_count' => 3,
+        'is_hidden' => false,
+        'attachments' => [],
+        'posted_at' => '2026-03-25T10:00:00Z',
+        'created_at' => '2026-03-25T10:01:00Z',
+    ];
+
+    public function testListAcceptsDateFilters(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['total' => 0, 'page' => 0, 'per_page' => 20, 'data' => []]);
+
+        $client->comments()->list('post-1', 'prof-1', from: '2026-03-25', to: '2026-03-26T12:00:00Z');
+
+        $uri = $this->lastRequestUri();
+        $this->assertStringContainsString('from=2026-03-25', $uri);
+        $this->assertStringContainsString('to=' . urlencode('2026-03-26T12:00:00Z'), $uri);
+    }
+
+    public function testListAllReturnsFlatComments(): void
+    {
+        $client = $this->mockClient();
+        $reply = ['id' => 'cmt_def456', 'body' => 'Thanks!', 'parent_external_id' => '17858893269123456'] + self::BULK_COMMENT;
+        $this->queueResponse(200, [
+            'total' => 2,
+            'page' => 0,
+            'per_page' => 50,
+            'data' => [self::BULK_COMMENT, $reply],
+        ]);
+
+        $result = $client->comments()->listAll(
+            postIds: ['abc123xyz', 'def456uvw'],
+            profiles: ['instagram', 'prof456'],
+            from: '2026-03-25',
+            perPage: 50,
+        );
+
+        $this->assertEquals(2, $result->total);
+        $this->assertInstanceOf(BulkComment::class, $result->data[0]);
+        $this->assertEquals('abc123xyz', $result->data[0]->postId);
+        $this->assertEquals('prof456', $result->data[0]->profileId);
+        $this->assertEquals('instagram', $result->data[0]->platform);
+        // Flat: the reply is its own entry, linked by parent_external_id.
+        $this->assertEquals('17858893269123456', $result->data[1]->parentExternalId);
+
+        $uri = $this->lastRequestUri();
+        $this->assertStringContainsString('/api/comments', $uri);
+        $this->assertStringContainsString('post_ids=' . urlencode('abc123xyz,def456uvw'), $uri);
+        $this->assertStringContainsString('profiles=' . urlencode('instagram,prof456'), $uri);
+        $this->assertStringContainsString('per_page=50', $uri);
+    }
+
+    public function testListAllWithoutFilters(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['total' => 0, 'page' => 0, 'per_page' => 20, 'data' => []]);
+
+        $client->comments()->listAll();
+
+        $uri = $this->lastRequestUri();
+        $this->assertStringContainsString('/api/comments', $uri);
+        $this->assertStringNotContainsString('profiles=', $uri);
+        $this->assertStringNotContainsString('post_ids=', $uri);
+    }
+
+    public function testCreateSendsIdempotencyKey(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['id' => 'cmt_abc123', 'body' => 'Nice', 'created_at' => '2026-03-25T10:01:00Z']);
+
+        $client->comments()->create('post-1', 'prof-1', 'Nice', idempotencyKey: 'key-42');
+
+        $this->assertEquals('key-42', $this->lastRequest()->getHeaderLine('Idempotency-Key'));
     }
 }

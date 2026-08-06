@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.12.0] - 2026-08-06
+
+### Added
+
+- **Post syncs & backfill.** `profiles()->backfillPosts($id, $from)` walks a profile's feed backwards from the newest post and imports the history behind it; `profiles()->postSyncs($id, ...)` and `profiles()->postSync($id, $postSyncId)` expose every post pull — the one fired on connect, the recurring poll, and backfills — as the new `PostSync` type.
+- **`comments()->listAll(postIds:, profiles:, from:, to:, page:, perPage:)`** — comments across every post in the profile group in one request. Flat: replies are their own entries linked by `parentExternalId`, typed as the new `BulkComment` (adds `postId`, `profileId`, `platform`).
+- `from:` and `to:` on `comments()->list()`, filtering on when PostProxy received the comment.
+- **Idempotency.** Every write method accepts `idempotencyKey:`, sent as the `Idempotency-Key` header, so a dropped connection no longer forces a choice between a duplicate write and a lost one.
+- `ConflictException` (409), thrown for a duplicate submission (`$e->response['duplicate_post_id']`), a backfill already running (`$e->response['profile_sync_id']`), or an in-flight idempotency key. Previously these surfaced as a bare `PostProxyException`.
+- **Instagram user tags.** `InstagramParams::$userTags` with the new `InstagramUserTag` type (`username`, `x`, `y`, `mediaIndex`) — tag accounts on feed posts, reels, and stories.
+- `StatsRecord::$rawStats` — every metric under its original platform name, alongside the normalized `stats`.
+- `examples/backfill_posts.php`, and cross-post comment listing in `examples/manage_comments.php`.
+
+### Changed
+
+- LinkedIn post stats now normalize `likes`, `comments`, `shares`, and `clicks` alongside `impressions` (server-side; `stats` was already an open array).
+- `HUMAN_AGENT` is now approved on **both** Facebook and Instagram and extends the reply window to 7 days. `messages()->send($chatId, tag: 'HUMAN_AGENT')` is unchanged — see the README for Meta's policy limits.
+
 ## [1.11.0] - 2026-07-14
 
 ### Added

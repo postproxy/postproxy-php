@@ -40,12 +40,13 @@ class Chats
         ?string $participantUsername = null,
         ?string $participantName = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): Chat {
         $jsonBody = ['participant_external_id' => $participantExternalId];
         if ($participantUsername !== null) $jsonBody['participant_username'] = $participantUsername;
         if ($participantName !== null) $jsonBody['participant_name'] = $participantName;
 
-        $result = $this->client->request('POST', "/profiles/{$profileId}/chats", json: $jsonBody, profileGroupId: $profileGroupId);
+        $result = $this->client->request('POST', "/profiles/{$profileId}/chats", json: $jsonBody, profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Chat($result);
     }
 
@@ -55,15 +56,15 @@ class Chats
         return new Chat($result);
     }
 
-    public function archive(string $chatId, ?string $profileGroupId = null): Chat
+    public function archive(string $chatId, ?string $profileGroupId = null, ?string $idempotencyKey = null): Chat
     {
-        $result = $this->client->request('POST', "/chats/{$chatId}/archive", profileGroupId: $profileGroupId);
+        $result = $this->client->request('POST', "/chats/{$chatId}/archive", profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Chat($result);
     }
 
-    public function unarchive(string $chatId, ?string $profileGroupId = null): Chat
+    public function unarchive(string $chatId, ?string $profileGroupId = null, ?string $idempotencyKey = null): Chat
     {
-        $result = $this->client->request('DELETE', "/chats/{$chatId}/archive", profileGroupId: $profileGroupId);
+        $result = $this->client->request('DELETE', "/chats/{$chatId}/archive", profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Chat($result);
     }
 

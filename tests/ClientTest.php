@@ -3,6 +3,7 @@
 namespace PostProxy\Tests;
 
 use PostProxy\Exceptions\AuthenticationException;
+use PostProxy\Exceptions\ConflictException;
 use PostProxy\Exceptions\BadRequestException;
 use PostProxy\Exceptions\NotFoundException;
 use PostProxy\Exceptions\PostProxyException;
@@ -100,5 +101,42 @@ class ClientTest extends TestCase
             $this->assertEquals(401, $e->statusCode);
             $this->assertEquals(['error' => 'Unauthorized'], $e->response);
         }
+    }
+
+    public function testConflictExceptionOn409(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(409, ['error' => 'Duplicate post', 'duplicate_post_id' => 'post-1']);
+
+        try {
+            $client->posts()->create('hello', ['prof-1']);
+            $this->fail('Expected ConflictException');
+        } catch (ConflictException $e) {
+            $this->assertEquals(409, $e->statusCode);
+            $this->assertEquals('post-1', $e->response['duplicate_post_id']);
+        }
+    }
+
+    public function testIdempotencyKeyHeaderIsSent(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['id' => 'post-1']);
+
+        $client->posts()->create('hello', ['prof-1'], idempotencyKey: '3f8b1c94-6a2d-4f0e-9d31-7c5e2a8b4f10');
+
+        $this->assertEquals(
+            '3f8b1c94-6a2d-4f0e-9d31-7c5e2a8b4f10',
+            $this->lastRequest()->getHeaderLine('Idempotency-Key'),
+        );
+    }
+
+    public function testIdempotencyKeyHeaderOmittedByDefault(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['id' => 'post-1']);
+
+        $client->posts()->create('hello', ['prof-1']);
+
+        $this->assertFalse($this->lastRequest()->hasHeader('Idempotency-Key'));
     }
 }

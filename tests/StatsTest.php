@@ -22,6 +22,7 @@ class StatsTest extends TestCase
                             'records' => [
                                 [
                                     'stats' => ['impressions' => 1200, 'likes' => 85, 'comments' => 12, 'saved' => 8],
+                                    'raw_stats' => ['views' => 1200, 'like_count' => 85],
                                     'recorded_at' => '2026-02-20T12:00:00Z',
                                 ],
                                 [

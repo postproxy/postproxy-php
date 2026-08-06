@@ -39,6 +39,35 @@ $client = new Client(
 );
 ```
 
+### Idempotency
+
+Every write method (`POST`/`PUT`/`PATCH`/`DELETE`) accepts an `idempotencyKey:`, sent as
+the `Idempotency-Key` header. If the connection drops before you see the response, retry
+with the same key and you get the original response back instead of a second post:
+
+```php
+$key = bin2hex(random_bytes(16));
+
+$post = $client->posts()->create('Hello', profiles: ['profile-id'], idempotencyKey: $key);
+
+// Retrying the same call with the same key replays the original response.
+```
+
+Generate a fresh key per logical operation — a UUID is ideal. Keys are scoped to your
+account and may be up to 255 characters. The SDK never generates keys or retries for you.
+
+| Situation | Result |
+|---|---|
+| First request with the key | Runs normally |
+| Retry after a success | Original status and body replayed |
+| Retry while the first is still running | `ConflictException` (409) — wait and retry |
+| Same key, different request body | `ValidationException` (422) |
+| Retry after an error response | Runs normally — errors are not replayed |
+
+Only successful (`2xx`) responses are stored, so a request that failed validation or hit a
+quota leaves the key free — fix the payload and retry with the same key. Stored responses
+are kept for **24 hours**. Requests without a key are unaffected.
+
 ## Resources
 
 ### Posts
@@ -296,7 +325,53 @@ $client->comments()->unlike('post-id', 'comment-id', profileId: 'profile-id');
 // Returns a Message, not a Comment.
 $message = $client->comments()->privateReply('post-id', 'comment-id', profileId: 'profile-id', text: 'DM-ing you the details!');
 echo "Reply queued as message {$message->id} in chat {$message->chatId}\n";
+
+// Filter by when PostProxy received the comment (created_at, not posted_at).
+// A bare date means that date's start of day. Applies to top-level comments —
+// one in range brings its full replies array with it.
+$recent = $client->comments()->list(
+    'post-id',
+    profileId: 'profile-id',
+    from: '2026-03-25',
+    to: '2026-03-26T12:00:00Z',
+);
 ```
+
+#### Comments across posts
+
+`comments()->listAll()` returns comments spanning every post in the profile group in one
+request — the comments counterpart to `posts()->stats()`. Every filter is optional.
+
+**This list is flat.** Unlike the per-post list, replies are not nested: every comment,
+top-level or reply, is its own entry linked to its parent by `parentExternalId`, so `total`
+counts every comment and paging is exact. Entries are `BulkComment`, which adds `postId`,
+`profileId`, and `platform`.
+
+```php
+$all = $client->comments()->listAll(
+    profiles: ['instagram', 'prof-abc'],  // profile IDs or network names, mixed
+    postIds: ['post-1', 'post-2'],        // omit for every post in scope
+    from: '2026-03-25',
+    perPage: 50,                          // max 100
+);
+
+foreach ($all->data as $c) {
+    // Each entry says where it came from, so you can act on it with the
+    // post-scoped methods above.
+    echo "{$c->platform} {$c->postId} {$c->profileId}: {$c->body}\n";
+
+    if ($c->parentExternalId !== null) {
+        echo "  ↳ reply to {$c->parentExternalId}\n";
+    }
+}
+
+// Reply to one of them
+$first = $all->data[0];
+$client->comments()->create($first->postId, $first->profileId, 'Thanks!', parentId: $first->id);
+```
+
+Unknown or out-of-scope IDs in `postIds` and `profiles` are ignored rather than erroring.
+Results are ordered newest first by receipt time.
 
 ### Direct Messages
 
@@ -429,6 +504,84 @@ $bsky = $client->profiles()->getProfileStats('prof_bsky_001');
 echo end($bsky->data->records)->stats['followersCount'];
 ```
 
+Every stats record (post stats and profile stats alike) carries `rawStats` alongside the
+normalized `stats`, exposing each metric under its **original platform name**:
+
+```php
+$stats = $client->posts()->stats(['post-id']);
+$record = $stats->data['post-id']->platforms[0]->records[0];
+
+echo $record->stats['impressions'];          // normalized
+echo $record->rawStats['views'];             // Instagram's own name
+echo $record->rawStats['impression_count'];  // Twitter/X's own name
+```
+
+LinkedIn post stats now normalize `likes`, `comments`, `shares`, and `clicks` alongside
+`impressions` — previously only `impressions` was normalized.
+
+#### Post syncs & backfill
+
+PostProxy mirrors posts published natively on a platform into your account. Every one of
+those pulls is recorded as a **post sync**: the one fired when the profile connects, the
+recurring poll, and any backfill you start.
+
+```php
+// Start a backfill — walks the feed backwards from the newest post in batches
+// of 25 until it reaches `from` or the platform stops returning posts.
+$sync = $client->profiles()->backfillPosts('prof-id', '2025-01-01');
+echo "{$sync->id} {$sync->status}"; // "sync456def pending"
+
+// Poll it to completion — finished when status is "completed" or "failed"
+$run = $client->profiles()->postSync('prof-id', $sync->id);
+echo "{$run->postsImported} of {$run->postsSeen}";
+
+// List recent runs (kept for 30 days), newest first
+$runs = $client->profiles()->postSyncs(
+    'prof-id',
+    trigger: 'backfill',   // connect | scheduled | backfill
+    status: 'completed',   // pending | running | completed | failed
+    perPage: 25,
+);
+```
+
+| `PostSync` property | Description |
+|---|---|
+| `id` | Sync identifier |
+| `profileId` | Profile this run belongs to |
+| `kind` | Always `posts` today |
+| `trigger` | `connect`, `scheduled`, or `backfill` |
+| `status` | `pending`, `running`, `completed`, or `failed` |
+| `startedAt` / `completedAt` | `DateTimeImmutable` or `null` |
+| `postsSeen` | Posts the platform returned across the run |
+| `postsImported` | Posts that were **new** and got created |
+| `backfillFrom` | The date floor requested; `null` for `connect`/`scheduled` |
+| `oldestPostedAt` | Publish date of the oldest post the run reached |
+| `error` | Platform error message when `status` is `failed` |
+| `createdAt` | `DateTimeImmutable` |
+
+**How far back a backfill reaches depends on the platform's API**, not on PostProxy: where
+history is pageable we follow it, otherwise the run ends early with whatever it got and
+still reports `status === 'completed'`.
+
+Only one backfill runs per profile at a time — starting a second throws `ConflictException`
+carrying the running one's id:
+
+```php
+use PostProxy\Exceptions\ConflictException;
+
+try {
+    $client->profiles()->backfillPosts('prof-id', '2025-01-01');
+} catch (ConflictException $e) {
+    $runningId = $e->response['profile_sync_id'];
+    // Poll the run that's already going.
+}
+```
+
+Posts you already have are skipped, so overlapping backfills are safe. Imported posts
+behave exactly like ones the poll picks up (`source: "imported"`, `post.imported` webhook),
+but a backfill's follow-up work is queued at a lower priority so a deep run can't slow down
+publishing.
+
 ### Profile Groups
 
 ```php
@@ -498,6 +651,43 @@ $platforms = new PlatformParams([
 $post = $client->posts()->create('Hello!', profiles: ['prof-1'], platforms: $platforms);
 ```
 
+### Instagram user tags
+
+Tag public Instagram accounts in a post — feed post, reel, or story:
+
+```php
+use PostProxy\Types\PlatformParams\InstagramUserTag;
+
+$platforms = new PlatformParams([
+    'instagram' => new InstagramParams([
+        'format' => 'post',
+        'user_tags' => [
+            new InstagramUserTag('natgeo', x: 0.5, y: 0.4),               // slide 0
+            new InstagramUserTag('nasa', x: 0.2, y: 0.8, mediaIndex: 1),  // slide 1
+            new InstagramUserTag('spacex', mediaIndex: 2),                // video — username only
+        ],
+    ]),
+]);
+
+$client->posts()->create(
+    'Shot on location',
+    profiles: ['ig-profile-id'],
+    media: ['https://example.com/1.jpg', 'https://example.com/2.jpg', 'https://example.com/3.mp4'],
+    platforms: $platforms,
+);
+```
+
+- **Images require `x` and `y`** — floats `0.0`–`1.0` measured from the top-left corner.
+- **Reels and video slides** are tagged by username only; coordinates are ignored and dropped.
+- **Stories** accept coordinates but don't need them.
+- `mediaIndex` picks the carousel slide (0-based, defaults to `0`, video slides included).
+- A leading `@` on a username is stripped for you.
+
+Coordinates outside `0.0`–`1.0`, a `mediaIndex` past the last media item, or an image tag
+missing `x`/`y` are rejected with a `ValidationException` naming the offending entry.
+Accounts that are private or have tagging turned off are silently skipped by Instagram at
+publish time.
+
 Supported platforms: `facebook`, `instagram`, `tiktok`, `linkedin`, `youtube`, `twitter`, `threads`, `pinterest`, `bluesky`, `telegram`, `google_business`. Telegram requires a `chat_id` per post — list channels with `$client->profiles()->placements($profileId)`.
 
 Twitter supports polls: pass `new TwitterParams(['format' => 'poll', 'poll_options' => ['Yes', 'No'], 'poll_duration_minutes' => 1440])` — 2-4 options (max 25 chars each), duration 5 to 10080 minutes.
@@ -524,6 +714,7 @@ $platforms = new PlatformParams([
 ```php
 use PostProxy\Exceptions\AuthenticationException;
 use PostProxy\Exceptions\NotFoundException;
+use PostProxy\Exceptions\ConflictException;
 use PostProxy\Exceptions\ValidationException;
 use PostProxy\Exceptions\BadRequestException;
 use PostProxy\Exceptions\PostProxyException;
@@ -534,6 +725,9 @@ try {
     // 401
 } catch (NotFoundException $e) {
     // 404
+} catch (ConflictException $e) {
+    // 409 — duplicate submission, a backfill already running, or an in-flight
+    // Idempotency-Key. Details are in $e->response.
 } catch (ValidationException $e) {
     // 422
 } catch (BadRequestException $e) {
@@ -545,6 +739,15 @@ try {
     echo print_r($e->response, true);
 }
 ```
+
+| Status | Exception | Thrown for |
+|---|---|---|
+| 400 | `BadRequestException` | Missing required parameters |
+| 401 | `AuthenticationException` | Invalid, missing, or insufficient API key permissions |
+| 404 | `NotFoundException` | Resource does not exist or is not accessible |
+| 409 | `ConflictException` | Duplicate submission (`duplicate_post_id`), a backfill already running (`profile_sync_id`), or an in-flight `Idempotency-Key` |
+| 422 | `ValidationException` | Validation failed |
+| 429 | `PostProxyException` | Posting rate limit reached |
 
 ## Development
 

@@ -5,6 +5,11 @@ namespace PostProxy\Types;
 class StatsRecord extends Model
 {
     public array $stats = [];
+    /**
+     * Every metric under its original platform name, e.g. `views` for
+     * Instagram or `impression_count` for Twitter/X.
+     */
+    public array $rawStats = [];
     public mixed $recordedAt = null;
 
     public function __construct(array $attrs = [])

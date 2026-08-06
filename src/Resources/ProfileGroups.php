@@ -27,15 +27,15 @@ class ProfileGroups
         return new ProfileGroup($result);
     }
 
-    public function create(string $name): ProfileGroup
+    public function create(string $name, ?string $idempotencyKey = null): ProfileGroup
     {
-        $result = $this->client->request('POST', '/profile_groups', json: ['name' => $name]);
+        $result = $this->client->request('POST', '/profile_groups', json: ['name' => $name], idempotencyKey: $idempotencyKey);
         return new ProfileGroup($result);
     }
 
-    public function delete(string $id): DeleteResponse
+    public function delete(string $id, ?string $idempotencyKey = null): DeleteResponse
     {
-        $result = $this->client->request('DELETE', "/profile_groups/{$id}");
+        $result = $this->client->request('DELETE', "/profile_groups/{$id}", idempotencyKey: $idempotencyKey);
         return new DeleteResponse($result);
     }
 

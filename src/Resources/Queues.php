@@ -38,6 +38,7 @@ class Queues
         ?string $timezone = null,
         ?int $jitter = null,
         ?array $timeslots = null,
+        ?string $idempotencyKey = null,
     ): Queue {
         $postQueue = ['name' => $name];
         if ($description !== null) $postQueue['description'] = $description;
@@ -50,7 +51,7 @@ class Queues
             'post_queue' => $postQueue,
         ];
 
-        $result = $this->client->request('POST', '/post_queues', json: $jsonBody);
+        $result = $this->client->request('POST', '/post_queues', json: $jsonBody, idempotencyKey: $idempotencyKey);
         return new Queue($result);
     }
 
@@ -62,6 +63,7 @@ class Queues
         ?bool $enabled = null,
         ?int $jitter = null,
         ?array $timeslots = null,
+        ?string $idempotencyKey = null,
     ): Queue {
         $postQueue = [];
         if ($name !== null) $postQueue['name'] = $name;
@@ -73,13 +75,13 @@ class Queues
 
         $jsonBody = ['post_queue' => $postQueue];
 
-        $result = $this->client->request('PATCH', "/post_queues/{$id}", json: $jsonBody);
+        $result = $this->client->request('PATCH', "/post_queues/{$id}", json: $jsonBody, idempotencyKey: $idempotencyKey);
         return new Queue($result);
     }
 
-    public function delete(string $id): DeleteResponse
+    public function delete(string $id, ?string $idempotencyKey = null): DeleteResponse
     {
-        $result = $this->client->request('DELETE', "/post_queues/{$id}");
+        $result = $this->client->request('DELETE', "/post_queues/{$id}", idempotencyKey: $idempotencyKey);
         return new DeleteResponse($result);
     }
 }

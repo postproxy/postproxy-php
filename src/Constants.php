@@ -6,7 +6,7 @@ class Constants
 {
     public const DEFAULT_BASE_URL = 'https://api.postproxy.dev';
 
-    public const VERSION = '1.11.0';
+    public const VERSION = '1.12.0';
 
     public const PLATFORMS = [
         'facebook', 'instagram', 'tiktok', 'linkedin',

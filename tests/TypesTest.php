@@ -108,4 +108,69 @@ class TypesTest extends \PHPUnit\Framework\TestCase
         $this->assertArrayNotHasKey('tiktok', $h);
         $this->assertArrayNotHasKey('twitter', $h);
     }
+
+    public function testInstagramUserTagsSerializeAsPlainArrays(): void
+    {
+        $params = new \PostProxy\Types\PlatformParams\PlatformParams([
+            'instagram' => new \PostProxy\Types\PlatformParams\InstagramParams([
+                'format' => 'post',
+                'user_tags' => [
+                    new \PostProxy\Types\PlatformParams\InstagramUserTag('natgeo', 0.5, 0.4),
+                    new \PostProxy\Types\PlatformParams\InstagramUserTag('nasa', 0.2, 0.8, 1),
+                    // Video slides are tagged by username only.
+                    new \PostProxy\Types\PlatformParams\InstagramUserTag('spacex', mediaIndex: 2),
+                ],
+            ]),
+        ]);
+
+        $tags = $params->toArray()['instagram']['user_tags'];
+
+        $this->assertCount(3, $tags);
+        $this->assertEquals(['username' => 'natgeo', 'x' => 0.5, 'y' => 0.4], $tags[0]);
+        $this->assertEquals(['username' => 'spacex', 'media_index' => 2], $tags[2]);
+    }
+
+    public function testStatsRecordCarriesRawStats(): void
+    {
+        $record = new \PostProxy\Types\StatsRecord([
+            'stats' => ['impressions' => 1200],
+            'raw_stats' => ['views' => 1200, 'impression_count' => 1200],
+            'recorded_at' => '2026-02-20T12:00:00Z',
+        ]);
+
+        $this->assertEquals(1200, $record->rawStats['views']);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $record->recordedAt);
+    }
+
+    public function testStatsRecordDefaultsRawStatsToEmpty(): void
+    {
+        $record = new \PostProxy\Types\StatsRecord([
+            'stats' => [],
+            'recorded_at' => '2026-02-20T12:00:00Z',
+        ]);
+
+        $this->assertEquals([], $record->rawStats);
+    }
+
+    public function testPostSyncParsesTimestamps(): void
+    {
+        $sync = new \PostProxy\Types\PostSync([
+            'id' => 'sync456def',
+            'profile_id' => 'prof123abc',
+            'kind' => 'posts',
+            'trigger' => 'backfill',
+            'status' => 'running',
+            'started_at' => '2026-08-06T09:15:02.000Z',
+            'completed_at' => null,
+            'posts_seen' => 150,
+            'posts_imported' => 143,
+            'oldest_posted_at' => '2025-11-04T18:22:00.000Z',
+            'created_at' => '2026-08-06T09:15:00.000Z',
+        ]);
+
+        $this->assertEquals('backfill', $sync->trigger);
+        $this->assertLessThan($sync->postsSeen, $sync->postsImported);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $sync->startedAt);
+        $this->assertNull($sync->completedAt);
+    }
 }

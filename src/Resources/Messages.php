@@ -43,6 +43,7 @@ class Messages
         ?string $replyToExternalId = null,
         ?array $replyMarkup = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): Message {
         $hasFiles = $mediaFiles !== null && count($mediaFiles) > 0;
 
@@ -72,6 +73,7 @@ class Messages
                 data: $formData,
                 files: $files,
                 profileGroupId: $profileGroupId,
+                idempotencyKey: $idempotencyKey,
             );
         } else {
             $jsonBody = [];
@@ -81,7 +83,7 @@ class Messages
             if ($replyToExternalId !== null) $jsonBody['reply_to_external_id'] = $replyToExternalId;
             if ($replyMarkup !== null) $jsonBody['reply_markup'] = $replyMarkup;
 
-            $result = $this->client->request('POST', "/chats/{$chatId}/messages", json: $jsonBody, profileGroupId: $profileGroupId);
+            $result = $this->client->request('POST', "/chats/{$chatId}/messages", json: $jsonBody, profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         }
 
         return new Message($result);
@@ -98,12 +100,13 @@ class Messages
         ?string $body = null,
         ?array $replyMarkup = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): Message {
         $jsonBody = [];
         if ($body !== null) $jsonBody['body'] = $body;
         if ($replyMarkup !== null) $jsonBody['reply_markup'] = $replyMarkup;
 
-        $result = $this->client->request('PATCH', "/messages/{$messageId}", json: $jsonBody, profileGroupId: $profileGroupId);
+        $result = $this->client->request('PATCH', "/messages/{$messageId}", json: $jsonBody, profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Message($result);
     }
 
@@ -112,18 +115,19 @@ class Messages
         ?string $reaction = null,
         ?string $emoji = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): Message {
         $jsonBody = [];
         if ($reaction !== null) $jsonBody['reaction'] = $reaction;
         if ($emoji !== null) $jsonBody['emoji'] = $emoji;
 
-        $result = $this->client->request('POST', "/messages/{$messageId}/react", json: $jsonBody ?: null, profileGroupId: $profileGroupId);
+        $result = $this->client->request('POST', "/messages/{$messageId}/react", json: $jsonBody ?: null, profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Message($result);
     }
 
-    public function unreact(string $messageId, ?string $profileGroupId = null): Message
+    public function unreact(string $messageId, ?string $profileGroupId = null, ?string $idempotencyKey = null): Message
     {
-        $result = $this->client->request('DELETE', "/messages/{$messageId}/unreact", profileGroupId: $profileGroupId);
+        $result = $this->client->request('DELETE', "/messages/{$messageId}/unreact", profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Message($result);
     }
 

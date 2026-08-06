@@ -30,8 +30,28 @@ foreach ($comments->data as $comment) {
     }
 }
 
-// Create a comment
-$newComment = $client->comments()->create($postId, $profileId, 'Thanks for the feedback!');
+// Filter the per-post list by when PostProxy received the comment
+$recent = $client->comments()->list($postId, $profileId, from: '2026-03-25', to: '2026-03-26');
+echo "Comments received 2026-03-25..26: {$recent->total}\n";
+
+// List comments across every post in the profile group. Flat: replies come
+// back as their own entries linked by parentExternalId.
+$across = $client->comments()->listAll(profiles: ['instagram'], from: '2026-03-25', perPage: 50);
+echo "Comments across posts: {$across->total}\n";
+foreach ($across->data as $c) {
+    $kind = $c->parentExternalId !== null ? 'reply' : 'comment';
+    echo "  [{$c->platform}] {$kind} on post {$c->postId} — {$c->authorUsername}: {$c->body}\n";
+}
+
+// Create a comment. An idempotency key makes the write safe to retry after a
+// dropped connection — the retry replays the original response instead of
+// posting a second comment.
+$newComment = $client->comments()->create(
+    $postId,
+    $profileId,
+    'Thanks for the feedback!',
+    idempotencyKey: bin2hex(random_bytes(16)),
+);
 echo "Created: {$newComment->id} (status: {$newComment->status})\n";
 
 // Reply to a comment

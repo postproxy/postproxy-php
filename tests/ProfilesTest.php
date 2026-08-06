@@ -5,7 +5,10 @@ namespace PostProxy\Tests;
 use PostProxy\Types\IceBreaker;
 use PostProxy\Types\IceBreakersResponse;
 use PostProxy\Types\ListResponse;
+use PostProxy\Exceptions\ConflictException;
+use PostProxy\Types\PaginatedResponse;
 use PostProxy\Types\Placement;
+use PostProxy\Types\PostSync;
 use PostProxy\Types\Profile;
 use PostProxy\Types\SuccessResponse;
 
@@ -155,5 +158,99 @@ class ProfilesTest extends TestCase
         $this->assertTrue($result->success);
         $this->assertEquals('DELETE', $this->lastRequest()->getMethod());
         $this->assertStringContainsString('/profiles/prof-1/ice_breakers', $this->lastRequestUri());
+    }
+
+    private const POST_SYNC = [
+        'id' => 'sync456def',
+        'profile_id' => 'prof-1',
+        'kind' => 'posts',
+        'trigger' => 'backfill',
+        'status' => 'running',
+        'started_at' => '2026-08-06T09:15:02.000Z',
+        'completed_at' => null,
+        'posts_seen' => 150,
+        'posts_imported' => 143,
+        'backfill_from' => '2025-01-01T00:00:00.000Z',
+        'oldest_posted_at' => '2025-11-04T18:22:00.000Z',
+        'error' => null,
+        'created_at' => '2026-08-06T09:15:00.000Z',
+    ];
+
+    public function testBackfillPostsStartsARun(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(202, ['status' => 'pending'] + self::POST_SYNC);
+
+        $sync = $client->profiles()->backfillPosts('prof-1', '2025-01-01');
+
+        $this->assertInstanceOf(PostSync::class, $sync);
+        $this->assertEquals('sync456def', $sync->id);
+        $this->assertEquals('backfill', $sync->trigger);
+        $this->assertEquals('pending', $sync->status);
+        $this->assertEquals('POST', $this->lastRequest()->getMethod());
+        $this->assertStringContainsString('/api/profiles/prof-1/backfill_posts', $this->lastRequestUri());
+        $this->assertEquals(['from' => '2025-01-01'], $this->lastRequestBody());
+    }
+
+    public function testBackfillPostsSendsIdempotencyKey(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(202, self::POST_SYNC);
+
+        $client->profiles()->backfillPosts('prof-1', '2025-01-01', idempotencyKey: 'key-1');
+
+        $this->assertEquals('key-1', $this->lastRequest()->getHeaderLine('Idempotency-Key'));
+    }
+
+    public function testBackfillPostsThrowsConflictWhenAlreadyRunning(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(409, [
+            'error' => 'A posts backfill is already running for this profile',
+            'profile_sync_id' => 'sync456def',
+        ]);
+
+        try {
+            $client->profiles()->backfillPosts('prof-1', '2025-01-01');
+            $this->fail('expected a ConflictException');
+        } catch (ConflictException $e) {
+            $this->assertEquals(409, $e->statusCode);
+            $this->assertEquals('sync456def', $e->response['profile_sync_id']);
+        }
+    }
+
+    public function testPostSyncsListsRunsWithFilters(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, [
+            'total' => 1,
+            'page' => 0,
+            'per_page' => 25,
+            'data' => [self::POST_SYNC],
+        ]);
+
+        $result = $client->profiles()->postSyncs('prof-1', trigger: 'backfill', status: 'running', perPage: 25);
+
+        $this->assertInstanceOf(PaginatedResponse::class, $result);
+        $this->assertEquals(1, $result->total);
+        $this->assertEquals(143, $result->data[0]->postsImported);
+        $this->assertInstanceOf(\DateTimeImmutable::class, $result->data[0]->oldestPostedAt);
+
+        $uri = $this->lastRequestUri();
+        $this->assertStringContainsString('/api/profiles/prof-1/post_syncs', $uri);
+        $this->assertStringContainsString('trigger=backfill', $uri);
+        $this->assertStringContainsString('status=running', $uri);
+        $this->assertStringContainsString('per_page=25', $uri);
+    }
+
+    public function testPostSyncFetchesASingleRun(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, ['status' => 'completed'] + self::POST_SYNC);
+
+        $sync = $client->profiles()->postSync('prof-1', 'sync456def');
+
+        $this->assertEquals('completed', $sync->status);
+        $this->assertStringContainsString('/api/profiles/prof-1/post_syncs/sync456def', $this->lastRequestUri());
     }
 }

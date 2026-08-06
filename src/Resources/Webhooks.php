@@ -30,13 +30,14 @@ class Webhooks
         string $url,
         array $events,
         ?string $description = null,
+        ?string $idempotencyKey = null,
     ): Webhook {
         $jsonBody = ['url' => $url, 'events' => $events];
         if ($description !== null) {
             $jsonBody['description'] = $description;
         }
 
-        $result = $this->client->request('POST', '/webhooks', json: $jsonBody);
+        $result = $this->client->request('POST', '/webhooks', json: $jsonBody, idempotencyKey: $idempotencyKey);
         return new Webhook($result);
     }
 
@@ -46,6 +47,7 @@ class Webhooks
         ?array $events = null,
         ?bool $enabled = null,
         ?string $description = null,
+        ?string $idempotencyKey = null,
     ): Webhook {
         $jsonBody = [];
         if ($url !== null) $jsonBody['url'] = $url;
@@ -53,13 +55,13 @@ class Webhooks
         if ($enabled !== null) $jsonBody['enabled'] = $enabled;
         if ($description !== null) $jsonBody['description'] = $description;
 
-        $result = $this->client->request('PATCH', "/webhooks/{$id}", json: $jsonBody);
+        $result = $this->client->request('PATCH', "/webhooks/{$id}", json: $jsonBody, idempotencyKey: $idempotencyKey);
         return new Webhook($result);
     }
 
-    public function delete(string $id): DeleteResponse
+    public function delete(string $id, ?string $idempotencyKey = null): DeleteResponse
     {
-        $result = $this->client->request('DELETE', "/webhooks/{$id}");
+        $result = $this->client->request('DELETE', "/webhooks/{$id}", idempotencyKey: $idempotencyKey);
         return new DeleteResponse($result);
     }
 

@@ -59,6 +59,7 @@ class Posts
         ?string $queueId = null,
         ?string $queuePriority = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): Post {
         $hasFiles = $mediaFiles !== null && count($mediaFiles) > 0;
         $hasThreadFiles = $thread !== null && array_reduce($thread, function ($carry, $t) {
@@ -139,6 +140,7 @@ class Posts
                 data: $formData,
                 files: $files,
                 profileGroupId: $profileGroupId,
+                idempotencyKey: $idempotencyKey,
             );
         } else {
             $postPayload = ['body' => $body];
@@ -166,7 +168,7 @@ class Posts
                 $jsonBody['queue_priority'] = $queuePriority;
             }
 
-            $result = $this->client->request('POST', '/posts', json: $jsonBody, profileGroupId: $profileGroupId);
+            $result = $this->client->request('POST', '/posts', json: $jsonBody, profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         }
 
         return new Post($result);
@@ -185,6 +187,7 @@ class Posts
         ?string $queueId = null,
         ?string $queuePriority = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): Post {
         $hasFiles = $mediaFiles !== null && count($mediaFiles) > 0;
         $hasThreadFiles = $thread !== null && array_reduce($thread, function ($carry, $t) {
@@ -270,6 +273,7 @@ class Posts
                 data: $formData,
                 files: $files,
                 profileGroupId: $profileGroupId,
+                idempotencyKey: $idempotencyKey,
             );
         } else {
             $jsonBody = [];
@@ -307,15 +311,18 @@ class Posts
                 $jsonBody['queue_priority'] = $queuePriority;
             }
 
-            $result = $this->client->request('PATCH', "/posts/{$id}", json: $jsonBody, profileGroupId: $profileGroupId);
+            $result = $this->client->request('PATCH', "/posts/{$id}", json: $jsonBody, profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         }
 
         return new Post($result);
     }
 
-    public function publishDraft(string $id, ?string $profileGroupId = null): Post
-    {
-        $result = $this->client->request('POST', "/posts/{$id}/publish", profileGroupId: $profileGroupId);
+    public function publishDraft(
+        string $id,
+        ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
+    ): Post {
+        $result = $this->client->request('POST', "/posts/{$id}/publish", profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Post($result);
     }
 
@@ -350,6 +357,7 @@ class Posts
         string $id,
         ?bool $deleteOnPlatform = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): DeleteResponse {
         $params = [];
         if ($deleteOnPlatform !== null) {
@@ -360,6 +368,7 @@ class Posts
             "/posts/{$id}",
             params: $params ?: null,
             profileGroupId: $profileGroupId,
+            idempotencyKey: $idempotencyKey,
         );
         return new DeleteResponse($result);
     }
@@ -370,6 +379,7 @@ class Posts
         ?string $profileId = null,
         ?string $network = null,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): DeleteOnPlatformResponse {
         $jsonBody = [];
         if ($postProfileId !== null) {
@@ -386,6 +396,7 @@ class Posts
             "/posts/{$id}/delete_on_platform",
             json: $jsonBody ?: null,
             profileGroupId: $profileGroupId,
+            idempotencyKey: $idempotencyKey,
         );
         return new DeleteOnPlatformResponse($result);
     }

@@ -47,12 +47,14 @@ class ProfileComments
         string $parentId,
         string $text,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): ProfileComment {
         $result = $this->client->request(
             'POST',
             "/profiles/{$profileId}/comments",
             json: ['parent_id' => $parentId, 'text' => $text],
             profileGroupId: $profileGroupId,
+            idempotencyKey: $idempotencyKey,
         );
         return new ProfileComment($result);
     }
@@ -61,8 +63,9 @@ class ProfileComments
         string $profileId,
         string $commentId,
         ?string $profileGroupId = null,
+        ?string $idempotencyKey = null,
     ): AcceptedResponse {
-        $result = $this->client->request('DELETE', "/profiles/{$profileId}/comments/{$commentId}", profileGroupId: $profileGroupId);
+        $result = $this->client->request('DELETE', "/profiles/{$profileId}/comments/{$commentId}", profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new AcceptedResponse($result);
     }
 }
