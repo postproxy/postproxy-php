@@ -20,6 +20,6 @@ class UserAgentTest extends TestCase
 
     public function test_version_constant_is_bumped(): void
     {
-        $this->assertSame('1.12.0', Constants::VERSION);
+        $this->assertSame('1.13.0', Constants::VERSION);
     }
 }

@@ -4,7 +4,11 @@ namespace PostProxy\Resources;
 
 use PostProxy\Client;
 use PostProxy\Types\Message;
+use PostProxy\Types\MessageButton;
+use PostProxy\Types\MessageCard;
+use PostProxy\Types\Model;
 use PostProxy\Types\PaginatedResponse;
+use PostProxy\Types\QuickReply;
 
 class Messages
 {
@@ -34,6 +38,20 @@ class Messages
         );
     }
 
+    /**
+     * Send a message to a chat.
+     *
+     * $quickReplies, $buttons, and $card are Facebook and Instagram only — they
+     * return 422 on Telegram and Bluesky, where $replyMarkup is the equivalent.
+     * They are sent on the JSON path only, so pass $media as hosted URLs rather
+     * than $mediaFiles when combining with an attachment.
+     *
+     * Each accepts model instances or plain arrays.
+     *
+     * @param QuickReply[]|array[]|null    $quickReplies Up to 13.
+     * @param MessageButton[]|array[]|null $buttons      Up to 3.
+     * @param MessageCard|array|null       $card         Requires $buttons.
+     */
     public function send(
         string $chatId,
         ?string $body = null,
@@ -42,6 +60,9 @@ class Messages
         ?string $tag = null,
         ?string $replyToExternalId = null,
         ?array $replyMarkup = null,
+        ?array $quickReplies = null,
+        ?array $buttons = null,
+        MessageCard|array|null $card = null,
         ?string $profileGroupId = null,
         ?string $idempotencyKey = null,
     ): Message {
@@ -82,6 +103,13 @@ class Messages
             if ($tag !== null) $jsonBody['tag'] = $tag;
             if ($replyToExternalId !== null) $jsonBody['reply_to_external_id'] = $replyToExternalId;
             if ($replyMarkup !== null) $jsonBody['reply_markup'] = $replyMarkup;
+            if ($quickReplies !== null) {
+                $jsonBody['quick_replies'] = array_map([self::class, 'serializeInteractive'], $quickReplies);
+            }
+            if ($buttons !== null) {
+                $jsonBody['buttons'] = array_map([self::class, 'serializeInteractive'], $buttons);
+            }
+            if ($card !== null) $jsonBody['card'] = self::serializeInteractive($card);
 
             $result = $this->client->request('POST', "/chats/{$chatId}/messages", json: $jsonBody, profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         }
@@ -129,6 +157,16 @@ class Messages
     {
         $result = $this->client->request('DELETE', "/messages/{$messageId}/unreact", profileGroupId: $profileGroupId, idempotencyKey: $idempotencyKey);
         return new Message($result);
+    }
+
+    /**
+     * Interactive params accept model instances or plain arrays. The models'
+     * toArray() drops nulls, so an omitted content_type stays omitted rather
+     * than being sent as null.
+     */
+    private static function serializeInteractive(mixed $value): array
+    {
+        return $value instanceof Model ? $value->toArray() : $value;
     }
 
     private function mimeTypeFor(string $filename): string

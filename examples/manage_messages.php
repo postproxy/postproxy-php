@@ -3,6 +3,9 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use PostProxy\Client;
+use PostProxy\Types\MessageButton;
+use PostProxy\Types\MessageCard;
+use PostProxy\Types\QuickReply;
 
 $client = new Client(
     apiKey: getenv('POSTPROXY_API_KEY'),
@@ -49,6 +52,38 @@ $client->messages()->send($chat->id, media: ['https://cdn.example.com/photo.png'
 
 // Send an image from a local file (multipart)
 // $client->messages()->send($chat->id, mediaFiles: ['./photo.png']);
+
+// Quick replies — tappable chips above the composer, gone once tapped.
+// Facebook & Instagram only; up to 13.
+$client->messages()->send($chat->id,
+    body: 'What can I help with?',
+    quickReplies: [
+        QuickReply::make('Track order', 'TRACK'),
+        QuickReply::make('Talk to support', 'HELP'),
+    ],
+);
+
+// Buttons — attached to the message and stay in the thread. Up to 3, and body is
+// capped at 80 characters when buttons are present (Meta's limit). card adds
+// subtitle / image / tap-through to the same card.
+$client->messages()->send($chat->id,
+    body: 'Your order shipped',
+    buttons: [
+        MessageButton::webUrl('Track', 'https://shop.example.com/o/123'),
+        MessageButton::postback('Cancel', 'CANCEL:123'),
+    ],
+    card: new MessageCard([
+        'subtitle' => 'Arriving Friday',
+        'image_url' => 'https://cdn.example.com/shoe.png',
+    ]),
+);
+
+// A tap comes back as an inbound message carrying tappedAction.
+foreach ($client->messages()->list($chat->id, direction: 'inbound')->data as $msg) {
+    if ($msg->tappedAction !== null) {
+        echo "  tapped {$msg->tappedAction->kind}: {$msg->tappedAction->payload}\n";
+    }
+}
 
 // React / unreact (Facebook & Instagram)
 $client->messages()->react($sent->id, reaction: 'love', emoji: '❤️');

@@ -20,6 +20,12 @@ class Message extends Model
     public mixed $externalEditedAt = null;
     public ?string $replyToExternalId = null;
     public mixed $replyMarkup = null;
+    /** @var QuickReply[]|null */
+    public ?array $quickReplies = null;
+    /** @var MessageButton[]|null */
+    public ?array $buttons = null;
+    public mixed $card = null;
+    public mixed $tappedAction = null;
     public mixed $externalDeletedAt = null;
     /** @var Reaction[] */
     public array $reactions = [];
@@ -43,6 +49,24 @@ class Message extends Model
         $this->attachments = array_map(function ($a) {
             return $a instanceof Attachment ? $a : new Attachment($a);
         }, $this->attachments ?? []);
+        // Left null rather than [] when absent — the API omits these on non-Meta
+        // networks, and an empty array would read as "sent with none".
+        if ($this->quickReplies !== null) {
+            $this->quickReplies = array_map(function ($q) {
+                return $q instanceof QuickReply ? $q : new QuickReply($q);
+            }, $this->quickReplies);
+        }
+        if ($this->buttons !== null) {
+            $this->buttons = array_map(function ($b) {
+                return $b instanceof MessageButton ? $b : new MessageButton($b);
+            }, $this->buttons);
+        }
+        if ($this->card !== null && !$this->card instanceof MessageCard) {
+            $this->card = new MessageCard($this->card);
+        }
+        if ($this->tappedAction !== null && !$this->tappedAction instanceof TappedAction) {
+            $this->tappedAction = new TappedAction($this->tappedAction);
+        }
     }
 
     private static function parseTime(mixed $value): ?\DateTimeImmutable

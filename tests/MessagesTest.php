@@ -3,7 +3,11 @@
 namespace PostProxy\Tests;
 
 use PostProxy\Types\Message;
+use PostProxy\Types\MessageButton;
+use PostProxy\Types\MessageCard;
 use PostProxy\Types\PaginatedResponse;
+use PostProxy\Types\QuickReply;
+use PostProxy\Types\TappedAction;
 
 class MessagesTest extends TestCase
 {
@@ -98,6 +102,102 @@ class MessagesTest extends TestCase
 
         $body = $this->lastRequestBody();
         $this->assertEquals('HUMAN_AGENT', $body['tag']);
+    }
+
+    public function testSendQuickRepliesAcceptsModelsAndArrays(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(202, array_merge(self::MOCK_OUTBOUND, [
+            'quick_replies' => [
+                ['content_type' => 'text', 'title' => 'Track order', 'payload' => 'TRACK'],
+            ],
+        ]));
+
+        $msg = $client->messages()->send('chat_xyz789',
+            body: 'What can I help with?',
+            quickReplies: [
+                QuickReply::make('Track order', 'TRACK'),
+                ['title' => 'Talk to support', 'payload' => 'HELP'],
+            ],
+        );
+
+        $body = $this->lastRequestBody();
+        // The model is serialized without its unset content_type, matching the array form.
+        $this->assertEquals([
+            ['title' => 'Track order', 'payload' => 'TRACK'],
+            ['title' => 'Talk to support', 'payload' => 'HELP'],
+        ], $body['quick_replies']);
+
+        $this->assertInstanceOf(QuickReply::class, $msg->quickReplies[0]);
+        $this->assertEquals('text', $msg->quickReplies[0]->contentType);
+    }
+
+    public function testSendButtonsWithCard(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(202, array_merge(self::MOCK_OUTBOUND, [
+            'buttons' => [
+                ['type' => 'web_url', 'title' => 'Track', 'url' => 'https://shop.example.com'],
+            ],
+            'card' => ['subtitle' => 'Arriving Friday'],
+        ]));
+
+        $msg = $client->messages()->send('chat_xyz789',
+            body: 'Your order shipped',
+            buttons: [
+                MessageButton::webUrl('Track', 'https://shop.example.com'),
+                MessageButton::postback('Cancel', 'CANCEL:123'),
+            ],
+            card: new MessageCard([
+                'subtitle' => 'Arriving Friday',
+                'default_action' => ['type' => 'web_url', 'url' => 'https://shop.example.com'],
+            ]),
+        );
+
+        $body = $this->lastRequestBody();
+        $this->assertEquals([
+            ['type' => 'web_url', 'title' => 'Track', 'url' => 'https://shop.example.com'],
+            ['type' => 'postback', 'title' => 'Cancel', 'payload' => 'CANCEL:123'],
+        ], $body['buttons']);
+        $this->assertEquals([
+            'subtitle' => 'Arriving Friday',
+            'default_action' => ['type' => 'web_url', 'url' => 'https://shop.example.com'],
+        ], $body['card']);
+
+        $this->assertInstanceOf(MessageButton::class, $msg->buttons[0]);
+        $this->assertEquals('https://shop.example.com', $msg->buttons[0]->url);
+        $this->assertInstanceOf(MessageCard::class, $msg->card);
+        $this->assertEquals('Arriving Friday', $msg->card->subtitle);
+    }
+
+    public function testTappedActionOnInboundTap(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, array_merge(self::MOCK_INBOUND, [
+            'id' => 'msg_333',
+            'body' => 'Track order',
+            'tapped_action' => ['kind' => 'quick_reply', 'payload' => 'TRACK', 'title' => 'Track order'],
+        ]));
+
+        $msg = $client->messages()->get('msg_333');
+
+        $this->assertInstanceOf(TappedAction::class, $msg->tappedAction);
+        $this->assertEquals(TappedAction::KIND_QUICK_REPLY, $msg->tappedAction->kind);
+        $this->assertEquals('TRACK', $msg->tappedAction->payload);
+        $this->assertEquals('Track order', $msg->tappedAction->title);
+    }
+
+    public function testInteractiveFieldsStayNullWhenAbsent(): void
+    {
+        $client = $this->mockClient();
+        $this->queueResponse(200, self::MOCK_INBOUND);
+
+        $msg = $client->messages()->get('msg_111');
+
+        $this->assertNull($msg->quickReplies);
+        $this->assertNull($msg->buttons);
+        $this->assertNull($msg->card);
+        $this->assertNull($msg->tappedAction);
     }
 
     public function testSendMediaUrlMessage(): void

@@ -424,7 +424,84 @@ $client->messages()->edit('message-id', body: 'Updated answer.');
 // React / unreact (Facebook & Instagram)
 $client->messages()->react('message-id', reaction: 'love', emoji: '❤️');
 $client->messages()->unreact('message-id');
+
+// Telegram: thread under a message and attach an inline keyboard
+$client->messages()->send('chat-id',
+    body: 'Pick one',
+    replyToExternalId: '4821',
+    replyMarkup: ['inline_keyboard' => [[['text' => 'Track order', 'callback_data' => 'track:1']]]],
+);
 ```
+
+#### Quick replies and buttons (Facebook & Instagram)
+
+Meta's two interactive primitives. **Quick replies** are chips above the participant's
+composer that disappear once tapped; **buttons** are attached to the message and stay in
+the thread. Telegram's equivalent is `replyMarkup` above — passing `quickReplies` or
+`buttons` on a Telegram or Bluesky chat returns `422`.
+
+Each param accepts model instances or plain arrays, whichever you prefer:
+
+```php
+use PostProxy\Types\CardDefaultAction;
+use PostProxy\Types\MessageButton;
+use PostProxy\Types\MessageCard;
+use PostProxy\Types\QuickReply;
+
+// Quick replies — up to 13. title ≤ 20 chars, payload ≤ 1000.
+$client->messages()->send('chat-id',
+    body: 'What can I help with?',
+    quickReplies: [
+        QuickReply::make('Track order', 'TRACK'),
+        ['title' => 'Talk to support', 'payload' => 'HELP'],
+    ],
+);
+
+// Buttons — up to 3, each either web_url or postback. card is optional and
+// requires buttons.
+$client->messages()->send('chat-id',
+    body: 'Your order shipped',
+    buttons: [
+        MessageButton::webUrl('Track', 'https://shop.example.com/o/123'),
+        MessageButton::postback('Cancel', 'CANCEL:123'),
+    ],
+    card: new MessageCard([
+        'subtitle' => 'Arriving Friday',
+        'image_url' => 'https://cdn.example.com/shoe.png',
+        'default_action' => CardDefaultAction::webUrl('https://shop.example.com/o/123'),
+    ]),
+);
+```
+
+Buttons are delivered as a Meta generic template and your `body` becomes the template's
+element title — so **`body` is capped at 80 characters when buttons are present**. That is
+Meta's limit, not PostProxy's, and a longer body is rejected with a `422` naming the
+length. Buttons cannot be combined with media. Instagram is stricter than Messenger: it
+delivers quick replies only on a plain-text message, so `quickReplies` with media or with
+`buttons` returns `422` on Instagram while both are accepted on Facebook.
+
+Validation happens server-side and names the offending index — `buttons[1].url must be an
+https:// URL` — surfacing as the SDK's usual exception for a `422`.
+
+> The new params are sent on the JSON path only. To combine quick replies with an
+> attachment, pass `media` as a hosted URL rather than uploading via `mediaFiles`.
+
+A tap comes back as an **inbound message** carrying `tappedAction`:
+
+```php
+$inbound = $client->messages()->list('chat-id', direction: 'inbound');
+foreach ($inbound->data as $msg) {
+    if ($msg->tappedAction !== null) {
+        // kind: quick_reply | postback | callback_query
+        echo "{$msg->tappedAction->kind}: {$msg->tappedAction->payload}\n";
+    }
+}
+```
+
+Subscribe to `message.received` to react to taps as they happen — the same field is on the
+webhook payload. `tappedAction` is derived rather than stored, so it also resolves for taps
+recorded before PostProxy exposed it, including Instagram ice-breaker taps and Telegram
+callback queries (`TappedAction::KIND_CALLBACK_QUERY`). A tap also opens the 24h window.
 
 ### Profile comments (Google Business reviews)
 
