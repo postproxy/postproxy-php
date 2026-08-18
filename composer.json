@@ -1,11 +1,11 @@
 {
     "name": "postproxy/postproxy-php",
-    "description": "PHP client for the PostProxy API — manage social media posts, profiles, and profile groups.",
+    "description": "PHP client for the Postproxy API — manage social media posts, profiles, and profile groups.",
     "type": "library",
     "license": "MIT",
     "authors": [
         {
-            "name": "PostProxy",
+            "name": "Postproxy",
             "email": "support@postproxy.dev"
         }
     ],
